@@ -7,4 +7,23 @@ export default defineConfig({
   optimizeDeps: {
     exclude: ['lucide-react'],
   },
+  build: {
+    chunkSizeWarningLimit: 1000,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vendor: [
+            'react', 
+            'react-dom', 
+            'react-router-dom',
+            'zustand'
+          ],
+          monaco: ['monaco-editor'],
+          ui: ['lucide-react'],
+        }
+      }
+    }
+  },
+  // Use relative paths for deployments
+  base: './'
 });
