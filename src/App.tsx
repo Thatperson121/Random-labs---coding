@@ -157,6 +157,20 @@ function About() {
           Random Labs is built with modern web technologies including React, TypeScript,
           and Monaco Editor (the same editor that powers VS Code).
         </p>
+        
+        <h2>Libraries and Dependencies</h2>
+        <p>This application uses the following open-source libraries:</p>
+        <ul>
+          <li><strong>React</strong> - A JavaScript library for building user interfaces</li>
+          <li><strong>TypeScript</strong> - A typed superset of JavaScript</li>
+          <li><strong>Vite</strong> - Next generation frontend tooling</li>
+          <li><strong>Zustand</strong> - A small, fast and scalable state management solution</li>
+          <li><strong>React Router</strong> - Declarative routing for React applications</li>
+          <li><strong>Monaco Editor</strong> - The code editor that powers VS Code</li>
+          <li><strong>Lucide Icons</strong> - Beautiful & consistent icons</li>
+          <li><strong>TailwindCSS</strong> - A utility-first CSS framework</li>
+          <li><strong>React Split</strong> - Split pane layout component</li>
+        </ul>
       </div>
     </div>
   );

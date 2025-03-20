@@ -23,6 +23,7 @@ interface State {
   setCollaborators: (collaborators: User[]) => void;
   setAssets: (assets: Asset[]) => void;
   fetchProjects: () => Promise<void>;
+  getUserProjects: (userId: string) => Promise<Project[]>;
   fetchTopProjects: (limit?: number) => Promise<void>;
   addProject: (project: Omit<Project, 'id'>) => Promise<void>;
   updateProject: (projectId: string, updates: Partial<Project>) => Promise<void>;
@@ -90,6 +91,18 @@ export const useStore = create<State>((set, get) => ({
       set({ projects, isLoading: false });
     } catch (error) {
       set({ error: 'Failed to fetch projects', isLoading: false });
+    }
+  },
+  
+  getUserProjects: async (userId: string) => {
+    set({ isLoading: true, error: null });
+    try {
+      const userProjects = await projectsAPI.getUserProjects(userId);
+      set({ projects: userProjects, isLoading: false });
+      return userProjects;
+    } catch (error) {
+      set({ error: 'Failed to fetch user projects', isLoading: false });
+      return [];
     }
   },
   

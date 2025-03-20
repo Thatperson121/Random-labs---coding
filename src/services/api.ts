@@ -26,10 +26,17 @@ export const authAPI = {
   signIn: async (email: string, password: string): Promise<{ user: User | null; error?: string }> => {
     await delay(800);
     
-    // Always return error for regular sign in
+    // Check if user exists
+    const user = serverUsers.find(u => u.email === email);
+    if (user) {
+      // In a real app, you would check the password here
+      localStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(user));
+      return { user };
+    }
+    
     return { 
       user: null, 
-      error: 'Sign in functionality is currently unavailable. Please use guest access.'
+      error: 'Invalid email or password. Try using guest access.'
     };
   },
   
@@ -37,11 +44,28 @@ export const authAPI = {
   register: async (name: string, email: string, password: string): Promise<{ user: User | null; error?: string }> => {
     await delay(800);
     
-    // Always return error for regular registration
-    return {
-      user: null,
-      error: 'Registration functionality is currently unavailable. Please use guest access.'
+    // Check if email already exists
+    if (serverUsers.some(u => u.email === email)) {
+      return {
+        user: null,
+        error: 'Email already in use. Try a different email or use guest access.'
+      };
+    }
+    
+    // Create new user
+    const newUser: User = {
+      id: `user_${Date.now().toString(36)}`,
+      name,
+      email,
+      color: `#${Math.floor(Math.random()*16777215).toString(16)}`,
+      friends: [],
     };
+    
+    serverUsers.push(newUser);
+    saveToStorage();
+    localStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(newUser));
+    
+    return { user: newUser };
   },
   
   // Create a guest account
@@ -171,86 +195,12 @@ export const projectsAPI = {
     return serverProjects.find(p => p.id === projectId) || null;
   },
   
-  // Add some initial example projects if none exist
+  // Initialize projects (empty by default)
   initializeExampleProjects: async (): Promise<void> => {
-    if (serverProjects.length === 0) {
-      const examples: Project[] = [
-        {
-          id: 'example_1',
-          name: 'React Todo App',
-          description: 'A simple todo application built with React and TypeScript',
-          language: 'TypeScript',
-          lastModified: '2024-03-20',
-          stars: 24,
-          visibility: 'public',
-          ownerId: 'system',
-          assets: [
-            {
-              id: 'index.ts',
-              name: 'index.ts',
-              type: 'file',
-              fileType: 'text/typescript',
-              size: 0,
-              lastModified: new Date().toISOString(),
-              content: '',
-              metadata: { language: 'typescript' }
-            }
-          ],
-          initialFile: 'index.ts'
-        },
-        {
-          id: 'example_2',
-          name: 'Python Data Visualization',
-          description: 'Data visualization project using Python, Pandas and Matplotlib',
-          language: 'Python',
-          lastModified: '2024-03-19',
-          stars: 18,
-          visibility: 'public',
-          ownerId: 'system',
-          assets: [
-            {
-              id: 'main.py',
-              name: 'main.py',
-              type: 'file',
-              fileType: 'text/x-python',
-              size: 0,
-              lastModified: new Date().toISOString(),
-              content: '',
-              metadata: { language: 'python' }
-            }
-          ],
-          initialFile: 'main.py'
-        },
-        {
-          id: 'example_3',
-          name: 'Node.js REST API',
-          description: 'A RESTful API built with Node.js and Express',
-          language: 'JavaScript',
-          lastModified: '2024-03-18',
-          stars: 15,
-          visibility: 'public',
-          ownerId: 'system',
-          assets: [
-            {
-              id: 'index.js',
-              name: 'index.js',
-              type: 'file',
-              fileType: 'text/javascript',
-              size: 0,
-              lastModified: new Date().toISOString(),
-              content: '',
-              metadata: { language: 'javascript' }
-            }
-          ],
-          initialFile: 'index.js'
-        }
-      ];
-      
-      serverProjects = examples;
-      saveToStorage();
-    }
+    // Don't create any example projects - we'll let users create their own
+    return;
   }
 };
 
-// Initialize example projects
+// Initialize project storage (but with no examples)
 projectsAPI.initializeExampleProjects(); 

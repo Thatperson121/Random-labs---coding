@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Code2, ThumbsUp, GitFork, Users, Trophy, Loader } from 'lucide-react';
+import { Code2, ThumbsUp, GitFork, Users, Trophy, Loader, Plus } from 'lucide-react';
 import { useStore } from '../store/useStore';
 
 const languageColors: Record<string, string> = {
@@ -20,24 +20,44 @@ export const HomePage: React.FC = () => {
     isLoading, 
     error,
     fetchTopProjects, 
+    fetchProjects,
+    getUserProjects,
     setProject 
   } = useStore();
   
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFilter, setSelectedFilter] = useState('all');
+  const [isUserView, setIsUserView] = useState(false);
 
-  // Fetch top projects when component mounts
+  // Fetch the correct projects based on view mode
   useEffect(() => {
-    fetchTopProjects(3);
-  }, [fetchTopProjects]);
+    const loadProjects = async () => {
+      if (currentUser && isUserView) {
+        // Load user's projects if they're logged in and in user view
+        try {
+          const userProjects = await getUserProjects(currentUser.id);
+          // This data is handled by the store
+        } catch (error) {
+          console.error("Failed to load user projects:", error);
+        }
+      } else {
+        // Otherwise load public projects
+        fetchProjects();
+      }
+    };
+    
+    loadProjects();
+  }, [fetchProjects, currentUser, isUserView, getUserProjects]);
 
+  // Get filtered projects
   const filteredProjects = projects.filter((project) => {
     const matchesSearch = project.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      project.description.toLowerCase().includes(searchQuery.toLowerCase());
+      project.description?.toLowerCase().includes(searchQuery.toLowerCase() || '');
     const matchesFilter = selectedFilter === 'all' || project.language === selectedFilter;
     return matchesSearch && matchesFilter;
   });
 
+  // Get unique languages from available projects
   const languages = Array.from(new Set(projects.map((p) => p.language)));
 
   const handleProjectClick = (project: typeof projects[0]) => {
@@ -49,26 +69,43 @@ export const HomePage: React.FC = () => {
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 animate-fade-in">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-8">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Featured Projects</h1>
+          <h1 className="text-3xl font-bold text-gray-900">
+            {isUserView && currentUser ? `${currentUser.name}'s Projects` : 'Community Projects'}
+          </h1>
           <p className="mt-2 text-sm text-gray-600">
-            Explore and learn from popular projects in the community
+            {isUserView && currentUser
+              ? 'Manage and edit your personal coding projects'
+              : 'Explore and learn from projects created by the community'}
           </p>
         </div>
-        {currentUser ? (
-          <Link
-            to="/new-project"
-            className="btn-primary mt-4 md:mt-0 text-center"
-          >
-            Create New Project
-          </Link>
-        ) : (
-          <Link
-            to="/signin"
-            className="btn-primary mt-4 md:mt-0 text-center"
-          >
-            Sign in to Create
-          </Link>
-        )}
+        
+        <div className="flex flex-col sm:flex-row gap-3 mt-4 md:mt-0">
+          {currentUser && (
+            <button
+              onClick={() => setIsUserView(!isUserView)}
+              className="btn-secondary text-center"
+            >
+              {isUserView ? 'View Community Projects' : 'View My Projects'}
+            </button>
+          )}
+          
+          {currentUser ? (
+            <Link
+              to="/new-project"
+              className="btn-primary text-center flex items-center justify-center"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Create Project
+            </Link>
+          ) : (
+            <Link
+              to="/signin"
+              className="btn-primary text-center"
+            >
+              Sign in to Create
+            </Link>
+          )}
+        </div>
       </div>
 
       <div className="mb-6 flex flex-col sm:flex-row gap-4">
@@ -96,31 +133,33 @@ export const HomePage: React.FC = () => {
             </svg>
           </div>
         </div>
-        <div className="flex gap-2 flex-wrap">
-          <button
-            className={`btn ${
-              selectedFilter === 'all'
-                ? 'btn-primary'
-                : 'btn-secondary'
-            }`}
-            onClick={() => setSelectedFilter('all')}
-          >
-            All
-          </button>
-          {languages.map((lang) => (
+        {languages.length > 0 && (
+          <div className="flex gap-2 flex-wrap">
             <button
-              key={lang}
               className={`btn ${
-                selectedFilter === lang
+                selectedFilter === 'all'
                   ? 'btn-primary'
                   : 'btn-secondary'
               }`}
-              onClick={() => setSelectedFilter(lang)}
+              onClick={() => setSelectedFilter('all')}
             >
-              {lang}
+              All
             </button>
-          ))}
-        </div>
+            {languages.map((lang) => (
+              <button
+                key={lang}
+                className={`btn ${
+                  selectedFilter === lang
+                    ? 'btn-primary'
+                    : 'btn-secondary'
+                }`}
+                onClick={() => setSelectedFilter(lang)}
+              >
+                {lang}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {error && (
@@ -134,7 +173,7 @@ export const HomePage: React.FC = () => {
           <Loader className="w-8 h-8 text-indigo-500 animate-spin" />
           <span className="ml-2 text-gray-600">Loading projects...</span>
         </div>
-      ) : (
+      ) : filteredProjects.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredProjects.map((project) => (
             <Link
@@ -167,10 +206,8 @@ export const HomePage: React.FC = () => {
             </Link>
           ))}
         </div>
-      )}
-
-      {!isLoading && filteredProjects.length === 0 && (
-        <div className="text-center py-12">
+      ) : (
+        <div className="text-center py-16 bg-white rounded-lg shadow-sm">
           <svg
             className="mx-auto h-12 w-12 text-gray-400"
             fill="none"
@@ -181,13 +218,31 @@ export const HomePage: React.FC = () => {
               strokeLinecap="round"
               strokeLinejoin="round"
               strokeWidth={2}
-              d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+              d="M9 13h6m-3-3v6m-9 1V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"
             />
           </svg>
-          <h3 className="mt-2 text-sm font-medium text-gray-900">No projects found</h3>
-          <p className="mt-1 text-sm text-gray-500">
-            Try adjusting your search or filter to find what you're looking for.
+          <h3 className="mt-4 text-lg font-medium text-gray-900">
+            {isUserView 
+              ? "You don't have any projects yet" 
+              : "No projects found"}
+          </h3>
+          <p className="mt-2 text-base text-gray-500 max-w-md mx-auto">
+            {isUserView 
+              ? "Start by creating your first project. It's quick and easy!"
+              : "Be the first to create a project in the community!"}
           </p>
+          <div className="mt-6">
+            {currentUser ? (
+              <Link to="/new-project" className="btn-primary inline-flex items-center">
+                <Plus className="w-4 h-4 mr-2" />
+                Create a Project
+              </Link>
+            ) : (
+              <Link to="/signin" className="btn-primary">
+                Sign in to Create
+              </Link>
+            )}
+          </div>
         </div>
       )}
     </div>

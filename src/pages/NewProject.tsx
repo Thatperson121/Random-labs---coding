@@ -22,6 +22,7 @@ export const NewProject: React.FC = () => {
   const [projectDescription, setProjectDescription] = useState('');
   const [selectedLanguage, setSelectedLanguage] = useState<string>('');
   const [mainFileName, setMainFileName] = useState<string>('');
+  const [localError, setLocalError] = useState<string | null>(null);
 
   // Redirect to signin if not authenticated
   useEffect(() => {
@@ -86,6 +87,7 @@ export const NewProject: React.FC = () => {
   // Update language and file name when template changes
   const handleTemplateSelect = (templateId: string) => {
     setSelectedTemplate(templateId);
+    setLocalError(null);
     const template = templates.find(t => t.id === templateId);
     if (template) {
       setSelectedLanguage(template.defaultLanguage);
@@ -150,37 +152,59 @@ export const NewProject: React.FC = () => {
   };
 
   const handleCreateProject = async () => {
-    const template = templates.find(t => t.id === selectedTemplate);
-    if (!template) return;
-
-    // Create a single file with no content
-    const initialAssets: Asset[] = [
-      {
-        id: mainFileName,
-        name: mainFileName,
-        type: 'file',
-        fileType: getFileTypeFromLanguage(selectedLanguage),
-        lastModified: new Date().toISOString(),
-        size: 0,
-        content: '',  // Ensure the file is empty
-        metadata: {
-          language: selectedLanguage
-        }
+    try {
+      setLocalError(null);
+      
+      if (!projectName.trim()) {
+        setLocalError('Project name is required');
+        return;
       }
-    ];
+      
+      if (!mainFileName.trim()) {
+        setLocalError('Main file name is required');
+        return;
+      }
+      
+      const template = templates.find(t => t.id === selectedTemplate);
+      if (!template) {
+        setLocalError('Please select a template');
+        return;
+      }
 
-    await addProject({
-      name: projectName || 'Untitled Project',
-      description: projectDescription,
-      language: selectedLanguage,
-      lastModified: new Date().toISOString().split('T')[0],
-      stars: 0,
-      initialFile: mainFileName,
-      assets: initialAssets
-    });
+      // Create a single file with no content
+      const initialAssets: Asset[] = [
+        {
+          id: mainFileName,
+          name: mainFileName,
+          type: 'file',
+          fileType: getFileTypeFromLanguage(selectedLanguage),
+          lastModified: new Date().toISOString(),
+          size: 0,
+          content: '',  // Ensure the file is empty
+          metadata: {
+            language: selectedLanguage
+          }
+        }
+      ];
 
-    if (!error) {
+      await addProject({
+        name: projectName.trim(),
+        description: projectDescription.trim(),
+        language: selectedLanguage,
+        lastModified: new Date().toISOString().split('T')[0],
+        stars: 0,
+        initialFile: mainFileName,
+        assets: initialAssets,
+        visibility: 'public',
+        ownerId: currentUser.id
+      });
+
+      // Navigate to the home page to see the new project
       navigate('/');
+      
+    } catch (err) {
+      console.error('Failed to create project:', err);
+      setLocalError('Failed to create project. Please try again.');
     }
   };
 
@@ -203,7 +227,7 @@ export const NewProject: React.FC = () => {
         return (
           <div className="animate-fade-in">
             <h2 className="text-lg font-medium text-gray-700 mb-4">Choose a template</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {templates.map((template) => (
                 <button
                   key={template.id}
@@ -266,9 +290,9 @@ export const NewProject: React.FC = () => {
               Back to templates
             </button>
 
-            {error && (
+            {(error || localError) && (
               <div className="mb-4 bg-red-50 text-red-700 p-3 rounded-md text-sm">
-                {error}
+                {error || localError}
               </div>
             )}
 
@@ -357,7 +381,7 @@ export const NewProject: React.FC = () => {
   };
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-8 animate-fade-in">
+    <div className="max-w-4xl mx-auto px-4 py-8">
       <h1 className="text-3xl font-bold text-gray-900 mb-8">Create New Project</h1>
       {renderStep()}
     </div>
