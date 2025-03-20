@@ -11,6 +11,7 @@ A browser-based collaborative coding environment with real-time collaboration, m
 - Project management and sharing
 - User authentication system
 - Responsive design works on desktop and mobile
+- AI assistant integration with secure API key handling
 
 ## Getting Started
 
@@ -37,7 +38,9 @@ npm install
    ```bash
    cp .env.example .env.local
    ```
-   - Edit `.env.local` and add your actual API keys and configuration
+   - Edit `.env.local` and add your configuration values
+   - **IMPORTANT**: For sensitive API keys (like OpenAI), DO NOT use the `VITE_` prefix
+   - Non-sensitive configuration should use the `VITE_` prefix
 
 4. Start the development server
 ```bash
@@ -116,11 +119,21 @@ This project uses environment variables to manage API keys and configuration. In
 
 1. Go to **Site settings** > **Build & deploy** > **Environment**
 2. Add the following environment variables:
-   - `VITE_API_KEY`: Your API key (will be kept secure)
-   - `VITE_API_URL`: The URL for your API (if applicable)
-   - `VITE_STORAGE_PREFIX`: Storage prefix for local data (optional)
+   - (Non-sensitive) `VITE_API_URL`: The URL for your API (if applicable)
+   - (Non-sensitive) `VITE_STORAGE_PREFIX`: Storage prefix for local data
+   - (Non-sensitive) `VITE_AI_FEATURES_ENABLED`: Set to "true" to enable AI features
+   - (Sensitive) `OPENAI_API_KEY`: Your OpenAI API key (will be secure)
 
-Environment variables are prefixed with `VITE_` to make them accessible in the frontend code through `import.meta.env.VITE_VARIABLE_NAME`.
+### API Key Security
+
+This project implements a security pattern to keep sensitive API keys secure:
+
+1. **NEVER use the `VITE_` prefix for sensitive API keys** - this would expose them in the client-side code
+2. For sensitive keys (like OpenAI), use a regular environment variable name (e.g., `OPENAI_API_KEY`)
+3. These variables are available to Netlify functions but not exposed to the browser
+4. The project includes a serverless function proxy (`netlify/functions/openai-proxy.js`) to securely make API calls
+
+Environment variables with the `VITE_` prefix are accessible in the frontend code through `import.meta.env.VITE_VARIABLE_NAME`.
 
 ## Technologies Used
 
@@ -130,6 +143,7 @@ Environment variables are prefixed with `VITE_` to make them accessible in the f
 - Monaco Editor
 - Tailwind CSS
 - Zustand for state management
+- Netlify Functions for serverless backend
 
 ## License
 

@@ -8,10 +8,9 @@ import rehypeHighlight from 'rehype-highlight';
 import 'highlight.js/styles/github-dark.css';
 
 interface Message {
-  id: string;
-  type: 'user' | 'assistant';
+  role: 'system' | 'user' | 'assistant';
   content: string;
-  timestamp: Date;
+  timestamp?: Date;
 }
 
 interface OpenAIResponse {
@@ -78,17 +77,23 @@ const formatCodeForDisplay = (assets: Asset[]): string => {
   return result;
 };
 
-export const AIAssistant: React.FC = () => {
+export const AIAssistant = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
-  const [isTyping, setIsTyping] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const isOpen = useStore((state) => state.isAIPanelOpen);
   const togglePanel = useStore((state) => state.toggleAIPanel);
-  const project = useStore((state) => state.project);
+  
   const assets = useStore((state) => state.assets);
   const selectedAsset = useStore((state) => state.assets.find(a => a.selected));
+
+  // Check if AI features are enabled
+  const aiEnabled = import.meta.env.VITE_AI_FEATURES_ENABLED === 'true';
+  
+  // Use this to track if OpenAI is available (key is set on the server)
+  const openAIAvailable = import.meta.env.VITE_OPENAI_AVAILABLE === 'true';
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -99,143 +104,88 @@ export const AIAssistant: React.FC = () => {
   }, [messages]);
 
   useEffect(() => {
-    // Add initial message when panel is opened
-    if (isOpen && messages.length === 0) {
-      const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
-      
-      if (!apiKey || apiKey === 'YOUR_OPENAI_API_KEY') {
-        setMessages([
-          {
-            id: 'welcome',
-            type: 'assistant',
-            content: 'Hello! Please add your OpenAI API key in the .env file to enable AI chat functionality. The key should be set as VITE_OPENAI_API_KEY.',
-            timestamp: new Date()
-          }
-        ]);
-        setError('API key is not configured or is invalid');
-      } else {
-        setMessages([
-          {
-            id: 'welcome',
-            type: 'assistant',
-            content: 'Hello! I can help you with your code. Ask me anything or try "Analyze my code" to get suggestions on your current project.',
-            timestamp: new Date()
-          }
-        ]);
-      }
+    // Initialize with a welcome message
+    if (messages.length === 0) {
+      setMessages([
+        {
+          role: 'system',
+          content: 'I am an AI coding assistant. How can I help you with your project today?'
+        }
+      ]);
     }
-  }, [isOpen, messages.length]);
+  }, [messages.length]);
 
-  const apiKeyConfigured = !!import.meta.env.VITE_OPENAI_API_KEY && 
-                          import.meta.env.VITE_OPENAI_API_KEY !== 'YOUR_OPENAI_API_KEY';
-
-  const callOpenAI = async (prompt: string, includeCode: boolean = false): Promise<string> => {
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!input.trim() || isLoading) return;
+    
+    // Add user message to the chat
+    const userMessage: Message = { role: 'user', content: input };
+    setMessages(prev => [...prev, userMessage]);
+    setInput('');
+    
+    // If AI is not enabled, show a message explaining this
+    if (!aiEnabled || !openAIAvailable) {
+      setMessages(prev => [
+        ...prev,
+        {
+          role: 'assistant',
+          content: 'Hello! AI features are currently disabled. Please enable them in your environment settings.'
+        }
+      ]);
+      return;
+    }
+    
     try {
-      const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
-      const model = import.meta.env.VITE_AI_MODEL || 'gpt-4o';
+      setIsLoading(true);
       
-      if (!apiKey) {
-        throw new Error('API key is not configured. Please add your OpenAI API key to the .env file with the VITE_ prefix.');
-      }
-
-      let systemPrompt = `You are a helpful coding assistant powered by ${model}. You provide clear, concise answers to programming questions.`;
-      
-      // Include code context if requested
-      let codeContext = '';
-      if (includeCode) {
-        if (selectedAsset && selectedAsset.type === 'file' && selectedAsset.content) {
-          codeContext = `Here's the current file I'm working on:\n\n${selectedAsset.name}:\n${selectedAsset.content}`;
-        } else {
-          codeContext = getCodeFromAssets(assets);
-        }
-        
-        if (codeContext) {
-          systemPrompt += " Here's the code I want you to analyze:\n\n" + codeContext;
-        }
-      }
-
-      console.log(`Making API request to OpenAI with model: ${model}`);
-      
-      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      // Use the serverless function instead of direct API call
+      const response = await fetch('/.netlify/functions/openai-proxy', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`
         },
         body: JSON.stringify({
-          model: model,
-          messages: [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: prompt }
-          ],
+          model: 'gpt-3.5-turbo',
+          messages: [...messages, userMessage],
           temperature: 0.7,
           max_tokens: 1000
         })
       });
-
+      
       if (!response.ok) {
-        const errorData = await response.json();
-        console.error('OpenAI API error:', errorData);
-        
-        if (errorData.error?.message) {
-          throw new Error(`OpenAI API error: ${errorData.error.message}`);
-        } else if (response.status === 401) {
-          throw new Error('API key is invalid. Please check your OpenAI API key.');
-        } else if (response.status === 429) {
-          throw new Error('Rate limit exceeded. Please try again later.');
-        } else {
-          throw new Error(`Error ${response.status}: ${response.statusText}`);
-        }
+        throw new Error(`Error: ${response.status}`);
       }
-
-      const data: OpenAIResponse = await response.json();
-      return data.choices[0]?.message?.content || 'I could not generate a response.';
+      
+      const data = await response.json();
+      
+      // Add AI response to messages
+      if (data.choices && data.choices[0]) {
+        setMessages(prev => [
+          ...prev,
+          {
+            role: 'assistant',
+            content: data.choices[0].message.content
+          }
+        ]);
+      }
     } catch (error) {
       console.error('Error calling OpenAI API:', error);
-      throw error;
-    }
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!input.trim()) return;
-
-    const userMessage: Message = {
-      id: Math.random().toString(36).substr(2, 9),
-      type: 'user',
-      content: input.trim(),
-      timestamp: new Date(),
-    };
-
-    setMessages((prev) => [...prev, userMessage]);
-    setInput('');
-    setIsTyping(true);
-    setError(null);
-
-    try {
-      // Check if it's a request to analyze code
-      const includeCode = input.toLowerCase().includes('analyze') && 
-                         input.toLowerCase().includes('code');
-      
-      const assistantResponse = await callOpenAI(input, includeCode);
-      
-      const assistantMessage: Message = {
-        id: Math.random().toString(36).substr(2, 9),
-        type: 'assistant',
-        content: assistantResponse,
-        timestamp: new Date(),
-      };
-      
-      setMessages((prev) => [...prev, assistantMessage]);
-    } catch (error) {
-      setError((error as Error).message);
+      setMessages(prev => [
+        ...prev,
+        {
+          role: 'assistant',
+          content: 'Sorry, I encountered an error while processing your request. Please try again later.'
+        }
+      ]);
     } finally {
-      setIsTyping(false);
+      setIsLoading(false);
     }
   };
 
   const handleAnalyzeCode = async () => {
-    setIsTyping(true);
+    setIsLoading(true);
     setError(null);
 
     // First, collect code from assets
@@ -251,8 +201,7 @@ export const AIAssistant: React.FC = () => {
 
     // Add the user request message
     const userMessage: Message = {
-      id: Math.random().toString(36).substr(2, 9),
-      type: 'user',
+      role: 'user',
       content: 'Analyze my current code and give me suggestions for improvement.',
       timestamp: new Date(),
     };
@@ -260,31 +209,48 @@ export const AIAssistant: React.FC = () => {
 
     // Add a system message showing what code is being analyzed
     const systemMessage: Message = {
-      id: Math.random().toString(36).substr(2, 9),
-      type: 'assistant',
+      role: 'assistant',
       content: `I'm analyzing the following code:\n\n${codeToAnalyze}`,
       timestamp: new Date(),
     };
     setMessages((prev) => [...prev, systemMessage]);
 
     try {
-      const assistantResponse = await callOpenAI(
-        'Analyze this code and provide suggestions for improvement, best practices, potential bugs, and optimization.', 
-        true
-      );
+      // Use the serverless function instead of direct API call
+      const response = await fetch('/.netlify/functions/openai-proxy', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'gpt-3.5-turbo',
+          messages: [...messages, userMessage, systemMessage],
+          temperature: 0.7,
+          max_tokens: 1000
+        })
+      });
       
-      const assistantMessage: Message = {
-        id: Math.random().toString(36).substr(2, 9),
-        type: 'assistant',
-        content: assistantResponse,
-        timestamp: new Date(),
-      };
+      if (!response.ok) {
+        throw new Error(`Error: ${response.status}`);
+      }
       
-      setMessages((prev) => [...prev, assistantMessage]);
+      const data = await response.json();
+      
+      // Add AI response to messages
+      if (data.choices && data.choices[0]) {
+        setMessages(prev => [
+          ...prev,
+          {
+            role: 'assistant',
+            content: data.choices[0].message.content
+          }
+        ]);
+      }
     } catch (error) {
+      console.error('Error calling OpenAI API:', error);
       setError((error as Error).message);
     } finally {
-      setIsTyping(false);
+      setIsLoading(false);
     }
   };
 
@@ -361,14 +327,14 @@ export const AIAssistant: React.FC = () => {
         <div className="overflow-y-auto p-4 space-y-4">
           {messages.map((message) => (
             <div
-              key={message.id}
+              key={message.role}
               className={`flex ${
-                message.type === 'user' ? 'justify-end' : 'justify-start'
+                message.role === 'user' ? 'justify-end' : 'justify-start'
               }`}
             >
               <div
                 className={`max-w-[80%] rounded-lg px-4 py-2 ${
-                  message.type === 'user'
+                  message.role === 'user'
                     ? 'bg-primary text-white'
                     : 'bg-gray-100 text-gray-800'
                 }`}
@@ -386,12 +352,12 @@ export const AIAssistant: React.FC = () => {
                   <p className="text-sm whitespace-pre-wrap">{message.content}</p>
                 )}
                 <span className="text-xs opacity-75 mt-1 block">
-                  {message.timestamp.toLocaleTimeString()}
+                  {message.timestamp?.toLocaleTimeString()}
                 </span>
               </div>
             </div>
           ))}
-          {isTyping && (
+          {isLoading && (
             <div className="flex justify-start">
               <div className="bg-gray-100 rounded-lg px-4 py-2">
                 <div className="flex space-x-1">
@@ -414,10 +380,10 @@ export const AIAssistant: React.FC = () => {
       <div className="p-2 border-t border-gray-200">
         <button
           onClick={handleAnalyzeCode}
-          disabled={isTyping || !apiKeyConfigured}
+          disabled={isLoading || !aiEnabled || !openAIAvailable}
           className="w-full mb-2 btn-secondary text-sm flex items-center justify-center"
         >
-          {isTyping ? (
+          {isLoading ? (
             <>
               <Loader className="w-4 h-4 mr-1 animate-spin" />
               Analyzing...
@@ -437,16 +403,16 @@ export const AIAssistant: React.FC = () => {
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder={apiKeyConfigured ? "Ask me anything about your code..." : "Please add your OpenAI API key to enable chat"}
+            placeholder={aiEnabled ? "Ask me anything about your code..." : "Please enable AI features to enable chat"}
             className="flex-1 input text-sm"
-            disabled={isTyping || !apiKeyConfigured}
+            disabled={isLoading || !aiEnabled || !openAIAvailable}
           />
           <button
             type="submit"
-            disabled={!input.trim() || isTyping || !apiKeyConfigured}
+            disabled={!input.trim() || isLoading || !aiEnabled || !openAIAvailable}
             className="btn-primary px-6 disabled:opacity-50"
           >
-            {isTyping ? (
+            {isLoading ? (
               <Loader className="w-4 h-4 animate-spin" />
             ) : (
               'Send'

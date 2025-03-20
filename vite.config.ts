@@ -32,6 +32,15 @@ export default defineConfig(({ mode }) => {
   // Load env variables from .env files based on mode (development, production)
   const env = loadEnv(mode, process.cwd(), '');
   
+  // SECURITY FIX: Filter out sensitive environment variables
+  // Only include variables with VITE_ prefix and ensure sensitive keys are not included
+  const safeEnv = Object.fromEntries(
+    Object.entries(env)
+      .filter(([key]) => key.startsWith('VITE_'))
+      // Explicitly exclude any sensitive variables that might have VITE_ prefix
+      .filter(([key]) => !key.includes('API_KEY') || key === 'VITE_AI_FEATURES_ENABLED')
+  );
+  
   return {
     plugins: [
       react(),
@@ -60,12 +69,20 @@ export default defineConfig(({ mode }) => {
     },
     // Use relative paths for deployments
     base: './',
-    // Make env variables available in the app
+    // Make env variables available in the app - ONLY include safe variables
     define: {
-      // This allows proper types for import.meta.env
-      'import.meta.env.VITE_API_KEY': JSON.stringify(env.VITE_API_KEY || ''),
+      // This allows proper types for import.meta.env and ensures API keys are not exposed
+      ...Object.fromEntries(
+        Object.entries(safeEnv).map(
+          ([key, value]) => [`import.meta.env.${key}`, JSON.stringify(value)]
+        )
+      ),
+      // Add specific safe environment variables
+      'import.meta.env.VITE_AI_FEATURES_ENABLED': JSON.stringify(env.VITE_AI_FEATURES_ENABLED || 'false'),
       'import.meta.env.VITE_API_URL': JSON.stringify(env.VITE_API_URL || ''),
-      'import.meta.env.VITE_STORAGE_PREFIX': JSON.stringify(env.VITE_STORAGE_PREFIX || ''),
+      'import.meta.env.VITE_STORAGE_PREFIX': JSON.stringify(env.VITE_STORAGE_PREFIX || 'codecollab'),
+      // Add placeholder for any OpenAI-related variables instead of the actual key
+      'import.meta.env.VITE_OPENAI_AVAILABLE': JSON.stringify(!!env.OPENAI_API_KEY || false),
     },
   }
 });

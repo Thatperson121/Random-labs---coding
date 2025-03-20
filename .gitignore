@@ -17,6 +17,7 @@ dist-ssr
 .env.local
 .env.production
 .env.development
+.env.netlify
 
 # Editor directories and files
 .vscode/*

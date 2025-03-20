@@ -14,6 +14,8 @@
 [build.environment]
   NODE_VERSION = "18"
   NPM_VERSION = "9"
+  # Configure secrets scanning to omit false positives
+  SECRETS_SCAN_OMIT_KEYS = "VITE_AI_FEATURES_ENABLED"
   
 # Configure build plugins
 [[plugins]]
