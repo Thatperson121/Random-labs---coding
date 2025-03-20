@@ -14,23 +14,35 @@ export interface Project {
   id: string;
   name: string;
   description: string;
-  visibility: 'private' | 'shared' | 'public';
-  collaborators: string[];
-  ownerId: string;
-  likes: number;
   language: string;
+  lastModified: string;
+  stars: number;
+  likes?: number;
+  visibility?: 'private' | 'shared' | 'public';
+  collaborators?: string[];
+  ownerId?: string;
   code?: string;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt?: Date;
+  updatedAt?: Date;
+  assets?: Asset[];
+  initialFile?: string;
 }
 
 export interface Asset {
   id: string;
   name: string;
-  type: string;
-  url: string;
+  type: 'file' | 'folder';
+  fileType?: string;
+  url?: string;
   size: number;
-  createdAt: Date;
+  lastModified: string;
+  children?: Asset[];
+  metadata?: {
+    language?: string;
+    [key: string]: any;
+  };
+  content?: string;
+  selected?: boolean;
 }
 
 export interface FriendRequest {

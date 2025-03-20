@@ -20,6 +20,8 @@ interface State {
   updateProject: (project: Project) => void;
   loginAsGuest: () => void;
   likeProject: (projectId: string) => void;
+  selectAsset: (assetId: string) => void;
+  updateAssetContent: (assetId: string, content: string) => void;
 }
 
 const GUEST_USER: User = {
@@ -56,5 +58,40 @@ export const useStore = create<State>((set) => ({
     projects: state.projects.map(p => 
       p.id === projectId ? { ...p, likes: p.likes + 1 } : p
     )
+  })),
+  selectAsset: (assetId) => set(state => ({
+    assets: state.assets.map(asset => {
+      const markSelected = (a: Asset): Asset => {
+        if (a.id === assetId) {
+          return { ...a, selected: true };
+        } else if (a.children) {
+          return {
+            ...a,
+            selected: false,
+            children: a.children.map(markSelected)
+          };
+        } else {
+          return { ...a, selected: false };
+        }
+      };
+      return markSelected(asset);
+    })
+  })),
+  updateAssetContent: (assetId, content) => set(state => ({
+    assets: state.assets.map(asset => {
+      const updateContent = (a: Asset): Asset => {
+        if (a.id === assetId) {
+          return { ...a, content };
+        } else if (a.children) {
+          return {
+            ...a,
+            children: a.children.map(updateContent)
+          };
+        } else {
+          return a;
+        }
+      };
+      return updateContent(asset);
+    })
   })),
 }));
