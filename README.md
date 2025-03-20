@@ -32,12 +32,19 @@ cd collaborative-browser-ide
 npm install
 ```
 
-3. Start the development server
+3. Set up environment variables
+   - Copy `.env.example` to `.env.local`
+   ```bash
+   cp .env.example .env.local
+   ```
+   - Edit `.env.local` and add your actual API keys and configuration
+
+4. Start the development server
 ```bash
 npm run dev
 ```
 
-4. Open your browser and navigate to `http://localhost:5173`
+5. Open your browser and navigate to `http://localhost:5173`
 
 ## Building for Production
 
@@ -84,6 +91,20 @@ netlify login
 ```bash
 netlify deploy --prod
 ```
+
+## Environment Variables
+
+This project uses environment variables to manage API keys and configuration. In Netlify, you can set these in the site dashboard:
+
+1. Go to **Site settings** > **Build & deploy** > **Environment**
+2. Add the following environment variables:
+   - `VITE_API_KEY`: Your API key (will be kept secure)
+   - `VITE_API_URL`: The URL for your API (if applicable)
+   - `VITE_STORAGE_PREFIX`: Storage prefix for local data (optional)
+
+![Netlify Environment Variables](https://i.imgur.com/example-image.png)
+
+Environment variables are prefixed with `VITE_` to make them accessible in the frontend code through `import.meta.env.VITE_VARIABLE_NAME`.
 
 ## Technologies Used
 

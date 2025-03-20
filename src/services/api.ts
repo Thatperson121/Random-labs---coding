@@ -1,10 +1,20 @@
 import { User, Project, Asset } from '../types';
 
+// Configuration object that will use environment variables in production
+export const apiConfig = {
+  // Use import.meta.env to access Vite environment variables
+  // In development, this will use the default value after ||
+  // In production, it will use the environment variable set in Netlify
+  apiKey: import.meta.env.VITE_API_KEY || 'development_api_key',
+  apiUrl: import.meta.env.VITE_API_URL || 'https://api.example.com',
+  storagePrefix: import.meta.env.VITE_STORAGE_PREFIX || 'codecollab',
+};
+
 // Firebase-like implementation using local storage when server is unavailable
 const STORAGE_KEYS = {
-  USERS: 'codecollab_users',
-  PROJECTS: 'codecollab_projects',
-  CURRENT_USER: 'codecollab_current_user',
+  USERS: `${apiConfig.storagePrefix}_users`,
+  PROJECTS: `${apiConfig.storagePrefix}_projects`,
+  CURRENT_USER: `${apiConfig.storagePrefix}_current_user`,
 };
 
 // Simulate network delay for a more realistic experience
@@ -25,6 +35,14 @@ export const authAPI = {
   // Sign in (simulated)
   signIn: async (email: string, password: string): Promise<{ user: User | null; error?: string }> => {
     await delay(800);
+    
+    // Log API key usage (this is just for demonstration, would not do in production)
+    console.log('Using API configuration:', { 
+      url: apiConfig.apiUrl,
+      prefix: apiConfig.storagePrefix,
+      // Never log the actual API key!
+      usingApiKey: !!apiConfig.apiKey
+    });
     
     // Check if user exists
     const user = serverUsers.find(u => u.email === email);
