@@ -27,24 +27,29 @@ function ProjectEditor() {
         if (currentProject.assets) {
           setAssets(currentProject.assets);
           
-          // Find the first file to select
-          const findFirstFile = (assets: any[]): string | null => {
-            for (const asset of assets) {
-              if (asset.type === 'file') {
-                return asset.id;
+          // If there's only one asset, select it
+          if (currentProject.assets.length === 1 && currentProject.assets[0].type === 'file') {
+            selectAsset(currentProject.assets[0].id);
+          } else {
+            // Otherwise find the first file
+            const findFirstFile = (assets: any[]): string | null => {
+              for (const asset of assets) {
+                if (asset.type === 'file') {
+                  return asset.id;
+                }
+                if (asset.children && asset.children.length > 0) {
+                  const fileId = findFirstFile(asset.children);
+                  if (fileId) return fileId;
+                }
               }
-              if (asset.children && asset.children.length > 0) {
-                const fileId = findFirstFile(asset.children);
-                if (fileId) return fileId;
-              }
+              return null;
+            };
+            
+            // Select the first file
+            const firstFileId = findFirstFile(currentProject.assets);
+            if (firstFileId) {
+              selectAsset(firstFileId);
             }
-            return null;
-          };
-          
-          // Select the first file
-          const firstFileId = findFirstFile(currentProject.assets);
-          if (firstFileId) {
-            selectAsset(firstFileId);
           }
         }
       }

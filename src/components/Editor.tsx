@@ -13,9 +13,7 @@ interface LanguageConfig {
 
 const LANGUAGE_CONFIGS: Record<SupportedLanguage, LanguageConfig> = {
   javascript: {
-    defaultCode: `// Welcome to Random Labs JavaScript!
-console.log("Hello from JavaScript!");
-document.write("Hello on the page!");`,
+    defaultCode: ``,
     runnerTemplate: (code: string) => `
       ${code}
     `,
@@ -24,10 +22,7 @@ document.write("Hello on the page!");`,
     ]
   },
   typescript: {
-    defaultCode: `// Welcome to Random Labs TypeScript!
-const greeting: string = "Hello from TypeScript!";
-console.log(greeting);
-document.write(greeting);`,
+    defaultCode: ``,
     runnerTemplate: (code: string) => `
       ${code}
     `,
@@ -36,71 +31,7 @@ document.write(greeting);`,
     ]
   },
   python: {
-    defaultCode: `# Welcome to Random Labs Python!
-import numpy as np
-import pandas as pd
-import matplotlib.pyplot as plt
-import random
-import pygame
-
-# Create some data
-data = np.random.randn(100)
-df = pd.DataFrame({'values': data})
-
-# Print summary statistics
-print(df.describe())
-
-# Random module example
-random_numbers = [random.randint(1, 100) for _ in range(10)]
-print("Random numbers:", random_numbers)
-
-# Example Pygame code (uncomment to try)
-'''
-# Initialize pygame
-pygame.init()
-
-# Set up the display
-screen = pygame.display.set_mode((800, 600))
-pygame.display.set_caption("My Pygame Window")
-
-# Game loop
-running = True
-clock = pygame.time.Clock()
-
-# Player position
-x, y = 400, 300
-speed = 5
-
-while running:
-    # Handle events
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-            running = False
-    
-    # Move with arrow keys
-    keys = pygame.key.get_pressed()
-    if keys[pygame.K_LEFT]:
-        x -= speed
-    if keys[pygame.K_RIGHT]:
-        x += speed
-    if keys[pygame.K_UP]:
-        y -= speed
-    if keys[pygame.K_DOWN]:
-        y += speed
-    
-    # Draw everything
-    screen.fill((0, 0, 0))
-    pygame.draw.circle(screen, (255, 0, 0), (x, y), 30)
-    
-    # Update the display
-    pygame.display.flip()
-    clock.tick(60)
-'''
-
-# You can also import many other libraries:
-# - scipy, sklearn, tensorflow, pytorch
-# - pygame, random, requests, django
-# - and many more!`,
+    defaultCode: ``,
     runnerTemplate: (code: string) => `
       // Load Pyodide
       async function initPython() {
@@ -169,12 +100,7 @@ while running:
     ]
   },
   java: {
-    defaultCode: `// Welcome to Random Labs Java!
-public class Main {
-    public static void main(String[] args) {
-        System.out.println("Hello from Java!");
-    }
-}`,
+    defaultCode: ``,
     runnerTemplate: (code: string) => `
       // Using Java compiler API when available
       document.write("Java support coming soon!");
@@ -185,51 +111,13 @@ public class Main {
     ]
   },
   html: {
-    defaultCode: `<!DOCTYPE html>
-<html>
-<head>
-  <title>My HTML Page</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      margin: 40px;
-      line-height: 1.6;
-    }
-    h1 {
-      color: #0066cc;
-    }
-  </style>
-</head>
-<body>
-  <h1>Welcome to Random Labs HTML!</h1>
-  <p>Edit this HTML and run to see your changes.</p>
-</body>
-</html>`,
+    defaultCode: ``,
     runnerTemplate: (code: string) => `
       document.write(\`${code.replace(/`/g, '\\`')}\`);
     `
   },
   css: {
-    defaultCode: `/* Welcome to Random Labs CSS */
-body {
-  font-family: Arial, sans-serif;
-  margin: 40px;
-  line-height: 1.6;
-  background-color: #f5f5f5;
-}
-
-.container {
-  max-width: 800px;
-  margin: 0 auto;
-  padding: 20px;
-  background-color: white;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-}
-
-h1 {
-  color: #0066cc;
-}`,
+    defaultCode: ``,
     runnerTemplate: (code: string) => `
       document.write(\`
         <style>${code}</style>
@@ -243,19 +131,7 @@ h1 {
     `
   },
   json: {
-    defaultCode: `{
-  "name": "Sample Project",
-  "version": "1.0.0",
-  "description": "A sample JSON configuration",
-  "dependencies": {
-    "react": "^18.2.0",
-    "lodash": "^4.17.21"
-  },
-  "scripts": {
-    "start": "node index.js",
-    "test": "jest"
-  }
-}`,
+    defaultCode: ``,
     runnerTemplate: (code: string) => `
       try {
         const jsonData = JSON.parse(\`${code.replace(/`/g, '\\`')}\`);
@@ -280,12 +156,7 @@ interface EditorProps {
   onChange?: (value: string) => void;
 }
 
-const DEFAULT_CODE = `// Welcome to Random Labs!
-// Write your code here...
-
-// Example:
-console.log("Hello, Random Labs!");
-document.write("Hello, Random Labs!"); // This will show in the preview`;
+const DEFAULT_CODE = ``;
 
 export const CodeEditor: React.FC<EditorProps> = ({
   language = 'javascript',

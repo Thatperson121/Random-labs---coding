@@ -136,27 +136,19 @@ export const NewProject: React.FC = () => {
     const template = templates.find(t => t.id === selectedTemplate);
     if (!template) return;
 
-    // Create initial file structure
+    // Create a single file with no content
     const initialAssets: Asset[] = [
       {
-        id: 'src',
-        name: 'src',
-        type: 'folder',
+        id: mainFileName,
+        name: mainFileName,
+        type: 'file',
+        fileType: getFileTypeFromLanguage(selectedLanguage),
         lastModified: new Date().toISOString(),
         size: 0,
-        children: [
-          {
-            id: mainFileName,
-            name: mainFileName,
-            type: 'file',
-            fileType: getFileTypeFromLanguage(selectedLanguage),
-            lastModified: new Date().toISOString(),
-            size: 0,
-            metadata: {
-              language: selectedLanguage
-            }
-          }
-        ]
+        content: '',  // Ensure the file is empty
+        metadata: {
+          language: selectedLanguage
+        }
       }
     ];
 
@@ -167,7 +159,7 @@ export const NewProject: React.FC = () => {
       language: selectedLanguage,
       lastModified: new Date().toISOString().split('T')[0],
       stars: 0,
-      initialFile: `src/${mainFileName}`,
+      initialFile: mainFileName,
       assets: initialAssets
     };
 
