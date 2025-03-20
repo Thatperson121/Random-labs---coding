@@ -1,10 +1,14 @@
 import React, { useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import { Code2, BookOpen, Info, Compass } from 'lucide-react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Code2, BookOpen, Info, Compass, UserCircle, LogOut, LogIn } from 'lucide-react';
+import { useStore } from '../store/useStore';
 
 export const Header: React.FC = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
+  const { currentUser, logout } = useStore();
 
   const navigation = [
     { name: 'Code', path: '/', icon: <Code2 className="w-4 h-4" /> },
@@ -12,6 +16,12 @@ export const Header: React.FC = () => {
     { name: 'Documentation', path: '/docs', icon: <BookOpen className="w-4 h-4" /> },
     { name: 'About', path: '/about', icon: <Info className="w-4 h-4" /> },
   ];
+
+  const handleLogout = async () => {
+    await logout();
+    navigate('/');
+    setIsUserMenuOpen(false);
+  };
 
   return (
     <header className="bg-white border-b border-gray-100">
@@ -64,12 +74,51 @@ export const Header: React.FC = () => {
               </div>
             </button>
 
-            <button
-              className="btn-primary hidden md:block"
-              onClick={() => alert('Sign in functionality is disabled')}
-            >
-              Sign in
-            </button>
+            {currentUser ? (
+              <div className="relative ml-3">
+                <div>
+                  <button
+                    className="flex text-sm rounded-full focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                    onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+                  >
+                    <div className="h-8 w-8 rounded-full bg-indigo-500 flex items-center justify-center text-white">
+                      {currentUser.name.charAt(0).toUpperCase()}
+                    </div>
+                  </button>
+                </div>
+                {isUserMenuOpen && (
+                  <div className="origin-top-right absolute right-0 mt-2 w-48 rounded-md shadow-lg py-1 bg-white ring-1 ring-black ring-opacity-5 z-10">
+                    <div className="px-4 py-2 text-sm text-gray-700 border-b border-gray-100">
+                      <p className="font-medium">{currentUser.name}</p>
+                      <p className="text-xs text-gray-500">{currentUser.email}</p>
+                    </div>
+                    <Link
+                      to="/new-project"
+                      onClick={() => setIsUserMenuOpen(false)}
+                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                    >
+                      New Project
+                    </Link>
+                    <button
+                      onClick={handleLogout}
+                      className="w-full text-left block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                    >
+                      <div className="flex items-center">
+                        <LogOut className="w-4 h-4 mr-2" />
+                        Sign out
+                      </div>
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <Link to="/signin" className="btn-primary hidden md:block">
+                <div className="flex items-center">
+                  <LogIn className="w-4 h-4 mr-2" />
+                  Sign in
+                </div>
+              </Link>
+            )}
 
             <button
               className="md:hidden p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100"
@@ -109,7 +158,7 @@ export const Header: React.FC = () => {
                 <Link
                   key={item.name}
                   to={item.path}
-                  className={`block px-3 py-2 rounded-md text-base font-medium ${
+                  className={`block px-3 py-2 rounded-md text-base font-medium flex items-center ${
                     location.pathname === item.path
                       ? 'text-primary bg-primary/5'
                       : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
@@ -117,23 +166,47 @@ export const Header: React.FC = () => {
                   onClick={() => setIsMenuOpen(false)}
                 >
                   {item.icon}
-                  <span>{item.name}</span>
+                  <span className="ml-2">{item.name}</span>
                 </Link>
               ))}
             </div>
             <div className="pt-4 pb-3 border-t border-gray-200">
-              <button
-                className="w-full btn-primary mb-2"
-                onClick={() => alert('Sign in functionality is disabled')}
-              >
-                Sign in
-              </button>
-              <button
-                className="w-full btn-secondary"
-                onClick={() => alert('Search functionality coming soon!')}
-              >
-                Search
-              </button>
+              {currentUser ? (
+                <>
+                  <div className="flex items-center px-4 mb-3">
+                    <div className="h-10 w-10 rounded-full bg-indigo-500 flex items-center justify-center text-white">
+                      {currentUser.name.charAt(0).toUpperCase()}
+                    </div>
+                    <div className="ml-3">
+                      <div className="text-sm font-medium text-gray-800">{currentUser.name}</div>
+                      <div className="text-xs text-gray-500">{currentUser.email}</div>
+                    </div>
+                  </div>
+                  <Link
+                    to="/new-project"
+                    className="block w-full btn-primary mb-2"
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    New Project
+                  </Link>
+                  <button
+                    className="w-full btn-secondary flex items-center justify-center"
+                    onClick={handleLogout}
+                  >
+                    <LogOut className="w-4 h-4 mr-2" />
+                    Sign out
+                  </button>
+                </>
+              ) : (
+                <Link
+                  to="/signin"
+                  className="w-full btn-primary mb-2 flex items-center justify-center"
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  <LogIn className="w-4 h-4 mr-2" />
+                  Sign in
+                </Link>
+              )}
             </div>
           </div>
         )}

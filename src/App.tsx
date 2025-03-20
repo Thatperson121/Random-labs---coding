@@ -8,7 +8,10 @@ import { AssetPanel } from './components/AssetPanel';
 import { HomePage } from './pages/HomePage';
 import { NewProject } from './pages/NewProject';
 import { ExplorePage } from './pages/ExplorePage';
+import { SignInPage } from './pages/SignInPage';
 import { useStore } from './store/useStore';
+import { authAPI } from './services/api';
+import { Loader } from 'lucide-react';
 
 function ProjectEditor() {
   const [isRightPanelCollapsed, setIsRightPanelCollapsed] = useState(false);
@@ -160,14 +163,37 @@ function About() {
 }
 
 function App() {
-  const { currentUser, loginAsGuest } = useStore();
+  const { currentUser, setCurrentUser, fetchTopProjects } = useStore();
+  const [isInitializing, setIsInitializing] = useState(true);
 
-  // Auto-login as guest if no user
+  // Check for existing user session and load initial data
   useEffect(() => {
-    if (!currentUser) {
-      loginAsGuest();
-    }
-  }, [currentUser, loginAsGuest]);
+    const initializeApp = async () => {
+      try {
+        // Try to get current user from local storage
+        const user = await authAPI.getCurrentUser();
+        if (user) {
+          setCurrentUser(user);
+        }
+        // Load featured projects
+        await fetchTopProjects(3);
+      } catch (error) {
+        console.error('Failed to initialize app:', error);
+      } finally {
+        setIsInitializing(false);
+      }
+    };
+
+    initializeApp();
+  }, [setCurrentUser, fetchTopProjects]);
+
+  if (isInitializing) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader className="w-10 h-10 text-indigo-500 animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <Router>
@@ -175,6 +201,7 @@ function App() {
         <Header />
         <Routes>
           <Route path="/" element={<HomePage />} />
+          <Route path="/signin" element={<SignInPage />} />
           <Route path="/new-project" element={<NewProject />} />
           <Route path="/project/:id" element={<ProjectEditor />} />
           <Route path="/explore" element={<ExplorePage />} />

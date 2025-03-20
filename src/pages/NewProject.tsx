@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Code2, Server, FileCode, Layers, Database, FileEdit } from 'lucide-react';
+import { Code2, Server, FileCode, Layers, Database, FileEdit, Loader } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { Asset } from '../types';
 
@@ -15,13 +15,30 @@ interface ProjectTemplate {
 
 export const NewProject: React.FC = () => {
   const navigate = useNavigate();
+  const { currentUser, addProject, isLoading, error } = useStore();
   const [step, setStep] = useState<'template' | 'details'>('template');
   const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
   const [projectName, setProjectName] = useState('');
   const [projectDescription, setProjectDescription] = useState('');
   const [selectedLanguage, setSelectedLanguage] = useState<string>('');
   const [mainFileName, setMainFileName] = useState<string>('');
-  const { addProject } = useStore();
+
+  // Redirect to signin if not authenticated
+  useEffect(() => {
+    if (!currentUser) {
+      navigate('/signin');
+    }
+  }, [currentUser, navigate]);
+
+  // If still loading user data, show loading state
+  if (!currentUser) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader className="w-8 h-8 text-indigo-500 animate-spin" />
+        <span className="ml-2 text-gray-600">Loading...</span>
+      </div>
+    );
+  }
 
   const templates: ProjectTemplate[] = [
     {
@@ -132,7 +149,7 @@ export const NewProject: React.FC = () => {
     }
   };
 
-  const handleCreateProject = () => {
+  const handleCreateProject = async () => {
     const template = templates.find(t => t.id === selectedTemplate);
     if (!template) return;
 
@@ -152,8 +169,7 @@ export const NewProject: React.FC = () => {
       }
     ];
 
-    const newProject = {
-      id: Math.random().toString(36).substr(2, 9),
+    await addProject({
       name: projectName || 'Untitled Project',
       description: projectDescription,
       language: selectedLanguage,
@@ -161,10 +177,11 @@ export const NewProject: React.FC = () => {
       stars: 0,
       initialFile: mainFileName,
       assets: initialAssets
-    };
+    });
 
-    addProject(newProject);
-    navigate(`/project/${newProject.id}`);
+    if (!error) {
+      navigate('/');
+    }
   };
 
   const getFileTypeFromLanguage = (language: string): string => {
@@ -249,6 +266,12 @@ export const NewProject: React.FC = () => {
               Back to templates
             </button>
 
+            {error && (
+              <div className="mb-4 bg-red-50 text-red-700 p-3 rounded-md text-sm">
+                {error}
+              </div>
+            )}
+
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
               <h2 className="text-lg font-medium text-gray-900 mb-6">Project Details</h2>
               <div className="space-y-4">
@@ -312,11 +335,18 @@ export const NewProject: React.FC = () => {
                 
                 <div className="pt-4">
                   <button
-                    className="btn-primary w-full"
+                    className="btn-primary w-full flex justify-center items-center"
                     onClick={handleCreateProject}
-                    disabled={!projectName.trim() || !mainFileName.trim()}
+                    disabled={!projectName.trim() || !mainFileName.trim() || isLoading}
                   >
-                    Create Project
+                    {isLoading ? (
+                      <>
+                        <Loader className="w-4 h-4 mr-2 animate-spin" />
+                        Creating...
+                      </>
+                    ) : (
+                      'Create Project'
+                    )}
                   </button>
                 </div>
               </div>

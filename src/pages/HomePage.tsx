@@ -1,73 +1,46 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Code2, ThumbsUp, GitFork, Users, Trophy } from 'lucide-react';
+import { Code2, ThumbsUp, GitFork, Users, Trophy, Loader } from 'lucide-react';
 import { useStore } from '../store/useStore';
-
-interface Project {
-  id: string;
-  name: string;
-  description: string;
-  lastModified: string;
-  language: string;
-  stars: number;
-}
-
-const sampleProjects: Project[] = [
-  {
-    id: '1',
-    name: 'React Dashboard',
-    description: 'A modern dashboard built with React and TypeScript',
-    lastModified: '2024-03-19',
-    language: 'TypeScript',
-    stars: 12,
-  },
-  {
-    id: '2',
-    name: 'API Gateway',
-    description: 'REST API gateway with authentication and rate limiting',
-    lastModified: '2024-03-18',
-    language: 'JavaScript',
-    stars: 8,
-  },
-  {
-    id: '3',
-    name: 'ML Model',
-    description: 'Machine learning model for image classification',
-    lastModified: '2024-03-17',
-    language: 'Python',
-    stars: 15,
-  },
-];
 
 const languageColors: Record<string, string> = {
   TypeScript: 'bg-blue-100 text-blue-800',
   JavaScript: 'bg-yellow-100 text-yellow-800',
   Python: 'bg-green-100 text-green-800',
+  Java: 'bg-red-100 text-red-800',
+  HTML: 'bg-orange-100 text-orange-800',
+  CSS: 'bg-purple-100 text-purple-800',
 };
 
 export const HomePage: React.FC = () => {
   const navigate = useNavigate();
-  const { currentUser, projects, loginAsGuest, setProject } = useStore();
+  const { 
+    currentUser, 
+    projects, 
+    isLoading, 
+    error,
+    fetchTopProjects, 
+    setProject 
+  } = useStore();
+  
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFilter, setSelectedFilter] = useState('all');
 
-  const allProjects = [...sampleProjects, ...projects].sort((a, b) => b.stars - a.stars);
+  // Fetch top projects when component mounts
+  useEffect(() => {
+    fetchTopProjects(3);
+  }, [fetchTopProjects]);
 
-  const filteredProjects = allProjects.filter((project) => {
+  const filteredProjects = projects.filter((project) => {
     const matchesSearch = project.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       project.description.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesFilter = selectedFilter === 'all' || project.language === selectedFilter;
     return matchesSearch && matchesFilter;
   });
 
-  const languages = Array.from(new Set(allProjects.map((p) => p.language)));
+  const languages = Array.from(new Set(projects.map((p) => p.language)));
 
-  const handleGuestAccess = () => {
-    loginAsGuest();
-    navigate('/');
-  };
-
-  const handleProjectClick = (project: typeof sampleProjects[0]) => {
+  const handleProjectClick = (project: typeof projects[0]) => {
     setProject(project);
     navigate(`/project/${project.id}`);
   };
@@ -76,17 +49,26 @@ export const HomePage: React.FC = () => {
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 animate-fade-in">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-8">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">My Projects</h1>
+          <h1 className="text-3xl font-bold text-gray-900">Featured Projects</h1>
           <p className="mt-2 text-sm text-gray-600">
-            Manage and organize your coding projects in one place
+            Explore and learn from popular projects in the community
           </p>
         </div>
-        <Link
-          to="/new-project"
-          className="btn-primary mt-4 md:mt-0 text-center"
-        >
-          Create New Project
-        </Link>
+        {currentUser ? (
+          <Link
+            to="/new-project"
+            className="btn-primary mt-4 md:mt-0 text-center"
+          >
+            Create New Project
+          </Link>
+        ) : (
+          <Link
+            to="/signin"
+            className="btn-primary mt-4 md:mt-0 text-center"
+          >
+            Sign in to Create
+          </Link>
+        )}
       </div>
 
       <div className="mb-6 flex flex-col sm:flex-row gap-4">
@@ -114,7 +96,7 @@ export const HomePage: React.FC = () => {
             </svg>
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           <button
             className={`btn ${
               selectedFilter === 'all'
@@ -141,48 +123,53 @@ export const HomePage: React.FC = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredProjects.map((project) => (
-          <Link
-            key={project.id}
-            to={`/project/${project.id}`}
-            className="card p-6 group animate-slide-in"
-          >
-            <div className="flex items-start justify-between">
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900 group-hover:text-primary">
-                  {project.name}
-                </h3>
-                <p className="mt-2 text-sm text-gray-600">
-                  {project.description}
-                </p>
-              </div>
-              <span className={`px-2 py-1 rounded-full text-xs font-medium ${languageColors[project.language]}`}>
-                {project.language}
-              </span>
-            </div>
-            <div className="mt-4 flex items-center justify-between text-sm text-gray-500">
-              <span>Last modified {project.lastModified}</span>
-              <div className="flex items-center">
-                <svg
-                  className="h-4 w-4 text-yellow-400"
-                  fill="currentColor"
-                  viewBox="0 0 20 20"
-                >
-                  <path
-                    fillRule="evenodd"
-                    d="M10 2l2.5 5 5.5.8-4 3.9.9 5.3-4.9-2.6L5.1 17l.9-5.3-4-3.9 5.5-.8L10 2z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-                <span className="ml-1">{project.stars}</span>
-              </div>
-            </div>
-          </Link>
-        ))}
-      </div>
+      {error && (
+        <div className="mb-6 bg-red-50 text-red-700 p-4 rounded-md">
+          {error}
+        </div>
+      )}
 
-      {filteredProjects.length === 0 && (
+      {isLoading ? (
+        <div className="flex justify-center items-center py-20">
+          <Loader className="w-8 h-8 text-indigo-500 animate-spin" />
+          <span className="ml-2 text-gray-600">Loading projects...</span>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {filteredProjects.map((project) => (
+            <Link
+              key={project.id}
+              to={`/project/${project.id}`}
+              className="card p-6 group animate-slide-in transition-all hover:shadow-md"
+            >
+              <div className="flex items-start justify-between">
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 group-hover:text-primary">
+                    {project.name}
+                  </h3>
+                  <p className="mt-2 text-sm text-gray-600">
+                    {project.description}
+                  </p>
+                </div>
+                <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                  languageColors[project.language] || 'bg-gray-100 text-gray-800'
+                }`}>
+                  {project.language}
+                </span>
+              </div>
+              <div className="mt-4 flex items-center justify-between text-sm text-gray-500">
+                <span>Updated {project.lastModified}</span>
+                <div className="flex items-center">
+                  <ThumbsUp className="h-4 w-4 text-yellow-400 mr-1" />
+                  <span>{project.stars || 0}</span>
+                </div>
+              </div>
+            </Link>
+          ))}
+        </div>
+      )}
+
+      {!isLoading && filteredProjects.length === 0 && (
         <div className="text-center py-12">
           <svg
             className="mx-auto h-12 w-12 text-gray-400"
