@@ -3,16 +3,25 @@ import react from '@vitejs/plugin-react';
 import { resolve } from 'path';
 import { promises as fs } from 'fs';
 
-// Plugin to copy _redirects file to dist during build
-const copyRedirects = () => {
+// Plugin to copy Netlify configuration files to dist during build
+const copyNetlifyFiles = () => {
   return {
-    name: 'copy-redirects',
+    name: 'copy-netlify-files',
     async writeBundle() {
       try {
+        // Copy _redirects file
         await fs.copyFile('_redirects', 'dist/_redirects');
         console.log('✅ _redirects file copied to dist');
+        
+        // Ensure headers file is copied from public if it exists
+        try {
+          await fs.copyFile('public/_headers', 'dist/_headers');
+          console.log('✅ _headers file copied to dist');
+        } catch (e) {
+          console.log('No _headers file found, skipping');
+        }
       } catch (error) {
-        console.error('Error copying _redirects file:', error);
+        console.error('Error copying Netlify files:', error);
       }
     }
   };
@@ -26,13 +35,14 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [
       react(),
-      copyRedirects()
+      copyNetlifyFiles()
     ],
     optimizeDeps: {
       exclude: ['lucide-react'],
     },
     build: {
       chunkSizeWarningLimit: 1000,
+      sourcemap: mode === 'development',
       rollupOptions: {
         output: {
           manualChunks: {

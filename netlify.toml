@@ -5,6 +5,7 @@
 [dev]
   command = "npm run dev"
   
+# Handle SPA routing
 [[redirects]]
   from = "/*"
   to = "/index.html"
@@ -17,6 +18,9 @@
 # Configure build plugins
 [[plugins]]
   package = "@netlify/plugin-lighthouse"
+  
+  [plugins.inputs]
+  output_path = "reports/lighthouse"
 
 # Enable bundling for improved performance
 [build.processing]
@@ -29,6 +33,9 @@
 [build.processing.js]
   bundle = true
   minify = true
+
+[build.processing.html]
+  pretty_urls = true
 
 [build.processing.images]
   compress = true
