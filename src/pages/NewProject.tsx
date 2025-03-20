@@ -4,6 +4,117 @@ import { Code2, Server, FileCode, Layers, Database, FileEdit, Loader } from 'luc
 import { useStore } from '../store/useStore';
 import { Asset } from '../types';
 
+// Define starter code templates for different languages
+const STARTER_CODE = {
+  javascript: `// JavaScript starter code
+console.log('Hello, world!');
+
+// Write your JavaScript code here
+function greet(name) {
+  return 'Hello, ' + name + '!';
+}
+
+// Test the function
+console.log(greet('Coder'));
+`,
+  typescript: `// TypeScript starter code
+console.log('Hello, TypeScript!');
+
+// Define a typed function
+function greet(name: string): string {
+  return \`Hello, \${name}!\`;
+}
+
+// Define an interface
+interface User {
+  name: string;
+  age: number;
+}
+
+// Create a user object
+const user: User = {
+  name: 'TypeScript User',
+  age: 25
+};
+
+console.log(greet(user.name));
+`,
+  python: `# Python starter code
+print("Hello, Python!")
+
+# Define a function
+def greet(name):
+    return f"Hello, {name}!"
+
+# Test the function
+print(greet("Pythonista"))
+
+# Example using math library
+import math
+print(f"The square root of 16 is {math.sqrt(16)}")
+print(f"The value of pi is approximately {math.pi:.5f}")
+
+# Example using os library
+import os
+print(f"Current working directory: {os.getcwd()}")
+# Uncomment to list files in current directory
+# print("Files in current directory:", os.listdir())
+`,
+  java: `// Java starter code
+public class Main {
+    public static void main(String[] args) {
+        System.out.println("Hello, Java!");
+        
+        // Call a method
+        String greeting = greet("Java Developer");
+        System.out.println(greeting);
+    }
+    
+    public static String greet(String name) {
+        return "Hello, " + name + "!";
+    }
+}`,
+  html: `<!DOCTYPE html>
+<html>
+<head>
+    <title>My HTML Page</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        h1 {
+            color: #2563eb;
+        }
+    </style>
+</head>
+<body>
+    <h1>Hello, HTML!</h1>
+    <p>This is a sample HTML page.</p>
+</body>
+</html>`,
+  css: `/* CSS Styles */
+body {
+    font-family: Arial, sans-serif;
+    background-color: #f9fafb;
+    color: #111827;
+    line-height: 1.5;
+}
+
+h1 {
+    color: #2563eb;
+    border-bottom: 2px solid #e5e7eb;
+    padding-bottom: 10px;
+}`,
+  json: `{
+  "name": "Sample Project",
+  "version": "1.0.0",
+  "description": "A sample JSON configuration"
+}`
+};
+
 interface ProjectTemplate {
   id: string;
   name: string;
@@ -171,7 +282,10 @@ export const NewProject: React.FC = () => {
         return;
       }
 
-      // Create a single file with no content
+      // Get starter code for selected language
+      const starterCode = STARTER_CODE[selectedLanguage as keyof typeof STARTER_CODE] || '';
+
+      // Create a single file with starter code
       const initialAssets: Asset[] = [
         {
           id: mainFileName,
@@ -179,8 +293,8 @@ export const NewProject: React.FC = () => {
           type: 'file',
           fileType: getFileTypeFromLanguage(selectedLanguage),
           lastModified: new Date().toISOString(),
-          size: 0,
-          content: '',  // Ensure the file is empty
+          size: starterCode.length,
+          content: starterCode,  // Add starter code
           metadata: {
             language: selectedLanguage
           }

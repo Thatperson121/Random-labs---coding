@@ -13,7 +13,17 @@ interface LanguageConfig {
 
 const LANGUAGE_CONFIGS: Record<SupportedLanguage, LanguageConfig> = {
   javascript: {
-    defaultCode: ``,
+    defaultCode: `// JavaScript code
+console.log('Hello, world!');
+
+// Write your JavaScript code here
+function greet(name) {
+  return 'Hello, ' + name + '!';
+}
+
+// Test the function
+console.log(greet('Coder'));
+`,
     runnerTemplate: (code: string) => `
       ${code}
     `,
@@ -22,7 +32,28 @@ const LANGUAGE_CONFIGS: Record<SupportedLanguage, LanguageConfig> = {
     ]
   },
   typescript: {
-    defaultCode: ``,
+    defaultCode: `// TypeScript code
+console.log('Hello, TypeScript!');
+
+// Define a typed function
+function greet(name: string): string {
+  return \`Hello, \${name}!\`;
+}
+
+// Define an interface
+interface User {
+  name: string;
+  age: number;
+}
+
+// Create a user object
+const user: User = {
+  name: 'TypeScript User',
+  age: 25
+};
+
+console.log(greet(user.name));
+`,
     runnerTemplate: (code: string) => `
       ${code}
     `,
@@ -31,7 +62,23 @@ const LANGUAGE_CONFIGS: Record<SupportedLanguage, LanguageConfig> = {
     ]
   },
   python: {
-    defaultCode: ``,
+    defaultCode: `# Python code
+print("Hello, Python!")
+
+# Define a function
+def greet(name):
+    return f"Hello, {name}!"
+
+# Test the function
+print(greet("Pythonista"))
+
+# You can use many libraries:
+# import numpy as np
+# import pandas as pd
+# import matplotlib.pyplot as plt
+# import math
+# import os
+`,
     runnerTemplate: (code: string) => `
       // Load Pyodide
       async function initPython() {
@@ -96,11 +143,24 @@ const LANGUAGE_CONFIGS: Record<SupportedLanguage, LanguageConfig> = {
     preloadedLibraries: [
       'numpy', 'pandas', 'matplotlib', 'scipy', 'scikit-learn', 
       'tensorflow', 'pytorch', 'requests', 'beautifulsoup4', 'flask', 'django',
-      'pygame', 'random'
+      'pygame', 'random', 'math', 'os'
     ]
   },
   java: {
-    defaultCode: ``,
+    defaultCode: `// Java code example
+public class Main {
+    public static void main(String[] args) {
+        System.out.println("Hello, Java!");
+        
+        // Call a method
+        String greeting = greet("Java Developer");
+        System.out.println(greeting);
+    }
+    
+    public static String greet(String name) {
+        return "Hello, " + name + "!";
+    }
+}`,
     runnerTemplate: (code: string) => `
       // Using Java compiler API when available
       document.write("Java support coming soon!");
@@ -111,13 +171,82 @@ const LANGUAGE_CONFIGS: Record<SupportedLanguage, LanguageConfig> = {
     ]
   },
   html: {
-    defaultCode: ``,
+    defaultCode: `<!DOCTYPE html>
+<html>
+<head>
+    <title>My HTML Page</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        h1 {
+            color: #2563eb;
+        }
+        .container {
+            border: 1px solid #e5e7eb;
+            padding: 20px;
+            border-radius: 8px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Hello, HTML!</h1>
+    <div class="container">
+        <p>This is a sample HTML page. You can edit it to create your own web page.</p>
+        <button onclick="alert('Button clicked!')">Click me</button>
+    </div>
+</body>
+</html>`,
     runnerTemplate: (code: string) => `
       document.write(\`${code.replace(/`/g, '\\`')}\`);
     `
   },
   css: {
-    defaultCode: ``,
+    defaultCode: `/* CSS Styles */
+body {
+    font-family: Arial, sans-serif;
+    background-color: #f9fafb;
+    color: #111827;
+    line-height: 1.5;
+}
+
+h1 {
+    color: #2563eb;
+    border-bottom: 2px solid #e5e7eb;
+    padding-bottom: 10px;
+}
+
+.container {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 20px;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+button {
+    background-color: #2563eb;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+button:hover {
+    background-color: #1d4ed8;
+}
+
+.sample-box {
+    border: 1px solid #e5e7eb;
+    padding: 15px;
+    margin-top: 20px;
+}`,
     runnerTemplate: (code: string) => `
       document.write(\`
         <style>${code}</style>
@@ -131,7 +260,27 @@ const LANGUAGE_CONFIGS: Record<SupportedLanguage, LanguageConfig> = {
     `
   },
   json: {
-    defaultCode: ``,
+    defaultCode: `{
+  "name": "Sample Project",
+  "version": "1.0.0",
+  "description": "A sample JSON configuration",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "test": "echo \\"Error: no test specified\\" && exit 1"
+  },
+  "keywords": [
+    "sample",
+    "json",
+    "config"
+  ],
+  "author": "Your Name",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.18.2",
+    "react": "^18.2.0"
+  }
+}`,
     runnerTemplate: (code: string) => `
       try {
         const jsonData = JSON.parse(\`${code.replace(/`/g, '\\`')}\`);
@@ -172,9 +321,12 @@ export const CodeEditor: React.FC<EditorProps> = ({
   const [consoleOutput, setConsoleOutput] = useState<string[]>([]);
   const [currentLanguage, setCurrentLanguage] = useState<SupportedLanguage>(language);
   const [isConsoleVisible, setIsConsoleVisible] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'error'>('saved');
   const project = useStore((state) => state.project);
   const assets = useStore((state) => state.assets);
   const updateAssetContent = useStore((state) => state.updateAssetContent);
+  const saveProject = useStore((state) => state.saveProject);
   const selectedAsset = assets.find(asset => asset.selected);
 
   // Initialize editor
@@ -221,7 +373,8 @@ export const CodeEditor: React.FC<EditorProps> = ({
               })),
               // Common modules
               ...['import numpy as np', 'import pandas as pd', 'import matplotlib.pyplot as plt', 
-                  'import tensorflow as tf', 'import sklearn', 'import random', 'import pygame'].map(imp => ({
+                  'import tensorflow as tf', 'import sklearn', 'import random', 'import pygame',
+                  'import math', 'import os'].map(imp => ({
                 label: imp,
                 kind: monaco.languages.CompletionItemKind.Module,
                 insertText: imp,
@@ -234,6 +387,22 @@ export const CodeEditor: React.FC<EditorProps> = ({
                 kind: monaco.languages.CompletionItemKind.Function,
                 insertText: func,
                 documentation: `Random module function`,
+                range
+              })),
+              // Math module functions
+              ...['math.sqrt(x)', 'math.sin(x)', 'math.cos(x)', 'math.pi', 'math.floor(x)', 'math.ceil(x)'].map(func => ({
+                label: func,
+                kind: monaco.languages.CompletionItemKind.Function,
+                insertText: func,
+                documentation: `Math module function`,
+                range
+              })),
+              // OS module functions
+              ...['os.path.join(path1, path2)', 'os.listdir(path)', 'os.getcwd()', 'os.makedirs(path)', 'os.remove(path)'].map(func => ({
+                label: func,
+                kind: monaco.languages.CompletionItemKind.Function,
+                insertText: func,
+                documentation: `OS module function`,
                 range
               })),
               // Pygame snippets
@@ -260,7 +429,7 @@ export const CodeEditor: React.FC<EditorProps> = ({
         
         // Save content to the asset
         if (selectedAsset) {
-          updateAssetContent(selectedAsset.id, content);
+          handleSaveContent(content);
         }
       });
 
@@ -269,6 +438,30 @@ export const CodeEditor: React.FC<EditorProps> = ({
       };
     }
   }, [initialValue, theme, currentLanguage, onChange, selectedAsset, updateAssetContent]);
+
+  // Update editor when selected asset changes
+  useEffect(() => {
+    if (editorRef.current && selectedAsset) {
+      // Update editor content and language when selected asset changes
+      const model = editorRef.current.getModel();
+      if (model) {
+        // Only set value if content exists and is different
+        if (selectedAsset.content !== undefined) {
+          const currentValue = editorRef.current.getValue();
+          if (currentValue !== selectedAsset.content) {
+            editorRef.current.setValue(selectedAsset.content);
+          }
+        }
+        
+        // Update language if needed
+        const assetLanguage = selectedAsset.metadata?.language as SupportedLanguage;
+        if (assetLanguage && assetLanguage !== currentLanguage) {
+          setCurrentLanguage(assetLanguage);
+          monaco.editor.setModelLanguage(model, assetLanguage);
+        }
+      }
+    }
+  }, [selectedAsset, currentLanguage]);
 
   // Update editor language if prop changes
   useEffect(() => {
@@ -282,6 +475,80 @@ export const CodeEditor: React.FC<EditorProps> = ({
       }
     }
   }, [language, currentLanguage]);
+
+  // Handle language change from dropdown
+  const handleLanguageChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const newLanguage = e.target.value as SupportedLanguage;
+    
+    // Don't do anything if same language selected
+    if (newLanguage === currentLanguage) return;
+    
+    // Update editor language
+    setCurrentLanguage(newLanguage);
+    
+    if (editorRef.current) {
+      const model = editorRef.current.getModel();
+      if (model) {
+        monaco.editor.setModelLanguage(model, newLanguage);
+      }
+      
+      // Update asset metadata if we have a selected asset
+      if (selectedAsset) {
+        // Get current content from editor
+        const content = editorRef.current.getValue();
+        
+        // Create updated asset with new language metadata
+        const updatedAsset = {
+          ...selectedAsset,
+          fileType: getFileTypeFromLanguage(newLanguage),
+          metadata: {
+            ...(selectedAsset.metadata || {}),
+            language: newLanguage
+          }
+        };
+        
+        // Manually save content and update asset metadata
+        handleSaveContent(content, updatedAsset);
+      }
+    }
+  };
+
+  // Function to get file type from language
+  const getFileTypeFromLanguage = (lang: SupportedLanguage): string => {
+    switch(lang) {
+      case 'javascript': return 'text/javascript';
+      case 'typescript': return 'text/typescript';
+      case 'python': return 'text/x-python';
+      case 'java': return 'text/x-java';
+      case 'html': return 'text/html';
+      case 'css': return 'text/css';
+      case 'json': return 'application/json';
+      default: return 'text/plain';
+    }
+  };
+
+  // Handle saving content with debounce
+  const saveContentTimeoutRef = useRef<number | null>(null);
+  const handleSaveContent = (content: string, asset = selectedAsset) => {
+    if (!asset) return;
+
+    // Clear previous timeout if it exists
+    if (saveContentTimeoutRef.current) {
+      window.clearTimeout(saveContentTimeoutRef.current);
+    }
+
+    // Set save status to saving
+    setSaveStatus('saving');
+    
+    // Wait a short time before saving to avoid too frequent saves
+    saveContentTimeoutRef.current = window.setTimeout(() => {
+      updateAssetContent(asset.id, content);
+      setSaveStatus('saved');
+      
+      // Clear timeout reference
+      saveContentTimeoutRef.current = null;
+    }, 500);
+  };
 
   const handleRun = async () => {
     if (!editorRef.current || !iframeRef.current) return;
@@ -454,7 +721,7 @@ export const CodeEditor: React.FC<EditorProps> = ({
           <select 
             className="text-sm border border-gray-300 rounded-md px-2 py-1 mr-2 bg-white"
             value={currentLanguage}
-            onChange={(e) => setCurrentLanguage(e.target.value as SupportedLanguage)}
+            onChange={handleLanguageChange}
           >
             {Object.keys(LANGUAGE_CONFIGS).map(lang => (
               <option key={lang} value={lang}>
@@ -482,6 +749,21 @@ export const CodeEditor: React.FC<EditorProps> = ({
               </>
             )}
           </button>
+          
+          <div className="ml-4 text-sm text-gray-500 flex items-center">
+            {saveStatus === 'saving' && (
+              <>
+                <Loader className="w-3 h-3 mr-1 animate-spin text-gray-400" />
+                <span>Saving...</span>
+              </>
+            )}
+            {saveStatus === 'saved' && (
+              <span className="text-green-600">Saved</span>
+            )}
+            {saveStatus === 'error' && (
+              <span className="text-red-600">Save failed</span>
+            )}
+          </div>
         </div>
 
         <div>

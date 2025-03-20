@@ -35,6 +35,9 @@ interface State {
   setProjects: (projects: Project[]) => void;
   selectAsset: (assetId: string) => void;
   updateAssetContent: (assetId: string, content: string) => void;
+  
+  // Save project function
+  saveProject: () => Promise<Project | undefined>;
 }
 
 const GUEST_USER: User = {
@@ -188,8 +191,9 @@ export const useStore = create<State>((set, get) => ({
     })
   })),
   
-  updateAssetContent: (assetId, content) => set(state => ({
-    assets: state.assets.map(asset => {
+  updateAssetContent: (assetId, content) => set(state => {
+    // Update the asset content in memory
+    const updatedAssets = state.assets.map(asset => {
       const updateContent = (a: Asset): Asset => {
         if (a.id === assetId) {
           return { ...a, content };
@@ -203,6 +207,46 @@ export const useStore = create<State>((set, get) => ({
         }
       };
       return updateContent(asset);
-    })
-  })),
+    });
+    
+    // Save the project with updated assets after content changes
+    const { project } = state;
+    if (project) {
+      const updatedProject = {
+        ...project,
+        assets: updatedAssets,
+        updatedAt: new Date(),
+        lastModified: new Date().toISOString().split('T')[0]
+      };
+      
+      // Save project changes to the server/localStorage without blocking the UI
+      projectsAPI.updateProject(project.id, updatedProject)
+        .catch(error => console.error('Failed to auto-save project:', error));
+    }
+    
+    return { assets: updatedAssets };
+  }),
+  
+  // Save project function to explicitly save project changes
+  saveProject: async () => {
+    const { project, assets } = get();
+    if (!project) return;
+    
+    set({ isLoading: true, error: null });
+    try {
+      // Update project with current assets
+      const updatedProject = await projectsAPI.updateProject(project.id, {
+        ...project,
+        assets,
+        updatedAt: new Date(),
+        lastModified: new Date().toISOString().split('T')[0]
+      });
+      
+      set({ project: updatedProject, isLoading: false });
+      return updatedProject;
+    } catch (error) {
+      set({ error: 'Failed to save project', isLoading: false });
+      console.error('Failed to save project:', error);
+    }
+  }
 }));
