@@ -66,7 +66,7 @@ This project is configured for easy deployment to Netlify. You can deploy in two
 2. Log in to Netlify and click "New site from Git"
 3. Choose GitHub and select your repository
 4. Use the following settings:
-   - Build command: `npm run build`
+   - Build command: `CI= npm run build`
    - Publish directory: `dist`
 5. Click "Deploy site"
 
@@ -92,6 +92,24 @@ netlify login
 netlify deploy --prod
 ```
 
+### Troubleshooting Netlify Deployment Issues
+
+If you encounter build errors on Netlify, try the following:
+
+1. **Check build logs**: In the Netlify dashboard, go to the failed deploy and check the detailed logs to identify the specific error.
+
+2. **Environment variables**: Ensure all required environment variables are set in the Netlify dashboard under Site settings > Build & deploy > Environment.
+
+3. **Node.js version**: This project is configured to use Node.js 18. If you need a different version, update the `NODE_VERSION` in `netlify.toml`.
+
+4. **Build command flag**: The `CI=` prefix in the build command helps prevent some CI-specific errors.
+
+5. **Redirects**: For SPA routing, this project includes both a `_redirects` file and Netlify configuration to handle client-side routing.
+
+6. **Clear cache**: If you've made configuration changes, try clearing the Netlify build cache:
+   - Go to Site settings > Build & deploy > Continuous Deployment
+   - Click "Clear cache and deploy site"
+
 ## Environment Variables
 
 This project uses environment variables to manage API keys and configuration. In Netlify, you can set these in the site dashboard:
@@ -101,8 +119,6 @@ This project uses environment variables to manage API keys and configuration. In
    - `VITE_API_KEY`: Your API key (will be kept secure)
    - `VITE_API_URL`: The URL for your API (if applicable)
    - `VITE_STORAGE_PREFIX`: Storage prefix for local data (optional)
-
-![Netlify Environment Variables](https://i.imgur.com/example-image.png)
 
 Environment variables are prefixed with `VITE_` to make them accessible in the frontend code through `import.meta.env.VITE_VARIABLE_NAME`.
 
