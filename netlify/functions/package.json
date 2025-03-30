@@ -1,0 +1,15 @@
+{
+  "name": "netlify-functions",
+  "version": "1.0.0",
+  "description": "Netlify Functions for the collaborative browser IDE",
+  "main": "websocket.js",
+  "dependencies": {
+    "@netlify/functions": "^2.0.0",
+    "ws": "^8.16.0",
+    "y-websocket": "^1.5.0"
+  },
+  "devDependencies": {
+    "@types/ws": "^8.5.10",
+    "typescript": "^5.0.0"
+  }
+} 

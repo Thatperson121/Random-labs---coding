@@ -1,5 +1,5 @@
 [build]
-  command = "CI= npm run build"
+  functions = "netlify/functions"
   publish = "dist"
   
 [dev]
@@ -56,4 +56,17 @@
 [[headers]]
   for = "/*.css"
     [headers.values]
-    Cache-Control = "public, max-age=31536000, immutable" 
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[redirects]]
+  from = "/.netlify/functions/websocket"
+  to = "/.netlify/functions/websocket"
+  status = 200
+  force = true
+
+[functions]
+  node_bundler = "esbuild"
+
+[functions.websocket]
+  memory = 1024
+  maxDuration = 30 
