@@ -17,7 +17,9 @@
     "netlify": "netlify",
     "server": "ts-node server/websocket.ts",
     "generate-api-key": "node scripts/generate-api-key.js",
-    "api": "ts-node server/api.ts"
+    "api": "ts-node server/api.ts",
+    "build-docker": "bash scripts/build-docker.sh",
+    "build-docker:windows": "cmd /c scripts\\build-docker.bat"
   },
   "dependencies": {
     "@monaco-editor/react": "^4.6.0",
