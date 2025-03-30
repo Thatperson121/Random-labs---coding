@@ -1,6 +1,7 @@
 [build]
-  functions = "netlify/functions"
+  command = "npm run build"
   publish = "dist"
+  functions = "netlify/functions"
   
 [dev]
   command = "npm run dev"
@@ -59,13 +60,18 @@
     Cache-Control = "public, max-age=31536000, immutable"
 
 [[redirects]]
-  from = "/.netlify/functions/websocket"
+  from = "/api/*"
+  to = "/.netlify/functions/:splat"
+  status = 200
+
+[[redirects]]
+  from = "/ws"
   to = "/.netlify/functions/websocket"
   status = 200
-  force = true
 
 [functions]
   node_bundler = "esbuild"
+  external_node_modules = ["ws", "express", "cors", "docker"]
 
 [functions.websocket]
   memory = 1024
