@@ -1,416 +1,202 @@
 import React, { useEffect, useRef, useState } from 'react';
-import * as monaco from 'monaco-editor';
-import { Play, Loader, StopCircle, Terminal, Maximize2, Minimize2, X } from 'lucide-react';
-import { useStore } from '../store/useStore';
-import { codeExecutionService } from '../services/execution';
+import { Editor } from '@monaco-editor/react';
+import { executionService } from '../services/execution';
 import { collaborationService } from '../services/collaboration';
+import { useParams } from 'react-router-dom';
+import { API_URL } from '../config';
+import { User } from '../types';
 
-type SupportedLanguage = 'javascript' | 'typescript' | 'python' | 'java' | 'html' | 'css' | 'json';
-
-interface LanguageConfig {
-  defaultCode: string;
-  runnerTemplate: (code: string) => string;
-  preloadedLibraries?: string[];
+interface EditorProps {
+  initialCode?: string;
+  language?: string;
 }
 
-const LANGUAGE_CONFIGS: Record<SupportedLanguage, LanguageConfig> = {
-  javascript: {
-    defaultCode: `// JavaScript code
-console.log('Hello, world!');
-
-// Write your JavaScript code here
-function greet(name) {
-  return 'Hello, ' + name + '!';
-}
-
-// Test the function
-console.log(greet('Coder'));`,
-    runnerTemplate: (code: string) => code,
-    preloadedLibraries: [
-      'react', 'react-dom', 'lodash', 'axios', 'moment', 'jquery', 'd3'
-    ]
-  },
-  typescript: {
-    defaultCode: `// TypeScript code
-console.log('Hello, TypeScript!');
-
-// Define a typed function
-function greet(name: string): string {
-  return \`Hello, \${name}!\`;
-}
-
-// Define an interface
-interface User {
-  name: string;
-  age: number;
-}
-
-// Create a user object
-const user: User = {
-  name: 'TypeScript User',
-  age: 25
-};
-
-console.log(greet(user.name));`,
-    runnerTemplate: (code: string) => code,
-    preloadedLibraries: [
-      'react', 'react-dom', 'lodash', 'axios', 'moment'
-    ]
-  },
-  python: {
-    defaultCode: `# Python code
-print("Hello, Python!")
-
-# Define a function
-def greet(name):
-    return f"Hello, {name}!"
-
-# Test the function
-print(greet("Pythonista"))
-
-# You can use many libraries:
-# import numpy as np
-# import pandas as pd
-# import matplotlib.pyplot as plt
-# import math
-# import os`,
-    runnerTemplate: (code: string) => code,
-    preloadedLibraries: [
-      'numpy', 'pandas', 'matplotlib', 'scipy', 'scikit-learn', 
-      'tensorflow', 'pytorch', 'requests', 'beautifulsoup4', 'flask', 'django',
-      'pygame', 'random', 'math', 'os'
-    ]
-  },
-  java: {
-    defaultCode: `// Java code example
-public class Main {
-    public static void main(String[] args) {
-        System.out.println("Hello, Java!");
-        
-        // Call a method
-        String greeting = greet("Java Developer");
-        System.out.println(greeting);
-    }
-    
-    public static String greet(String name) {
-        return "Hello, " + name + "!";
-    }
-}`,
-    runnerTemplate: (code: string) => code,
-    preloadedLibraries: [
-      'java.util.*', 'java.io.*', 'java.math.*', 'java.text.*'
-    ]
-  },
-  html: {
-    defaultCode: `<!DOCTYPE html>
-<html>
-<head>
-    <title>My HTML Page</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 20px;
-        }
-        h1 {
-            color: #2563eb;
-        }
-        .container {
-            border: 1px solid #e5e7eb;
-            padding: 20px;
-            border-radius: 8px;
-        }
-    </style>
-</head>
-<body>
-    <h1>Hello, HTML!</h1>
-    <div class="container">
-        <p>This is a sample HTML page. You can edit it to create your own web page.</p>
-        <button onclick="alert('Button clicked!')">Click me</button>
-    </div>
-</body>
-</html>`,
-    runnerTemplate: (code: string) => code
-  },
-  css: {
-    defaultCode: `/* CSS Styles */
-body {
-    font-family: Arial, sans-serif;
-    background-color: #f9fafb;
-    color: #111827;
-    line-height: 1.5;
-}
-
-h1 {
-    color: #2563eb;
-    border-bottom: 2px solid #e5e7eb;
-    padding-bottom: 10px;
-}
-
-.container {
-    max-width: 800px;
-    margin: 0 auto;
-    padding: 20px;
-    background: white;
-    border-radius: 8px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
-
-button {
-    background-color: #2563eb;
-    color: white;
-    border: none;
-    padding: 8px 16px;
-    border-radius: 4px;
-    cursor: pointer;
-    transition: background-color 0.3s;
-}
-
-button:hover {
-    background-color: #1d4ed8;
-}
-
-.sample-box {
-    border: 1px solid #e5e7eb;
-    padding: 15px;
-    margin-top: 20px;
-}`,
-    runnerTemplate: (code: string) => code
-  },
-  json: {
-    defaultCode: `{
-  "name": "Sample JSON",
-  "version": "1.0.0",
-  "description": "This is a sample JSON file",
-  "author": {
-    "name": "John Doe",
-    "email": "john@example.com"
-  },
-  "dependencies": {
-    "react": "^18.2.0",
-    "typescript": "^5.0.0"
-  }
-}`,
-    runnerTemplate: (code: string) => code
-  }
-};
-
-export const CodeEditor: React.FC = () => {
-  const editorRef = useRef<HTMLDivElement>(null);
-  const [editor, setEditor] = useState<monaco.editor.IStandaloneCodeEditor | null>(null);
-  const [isFullscreen, setIsFullscreen] = useState(false);
-  const [isExecuting, setIsExecuting] = useState(false);
+const CodeEditor: React.FC<EditorProps> = ({ initialCode = '', language = 'python' }) => {
+  const editorRef = useRef<any>(null);
+  const [code, setCode] = useState(initialCode);
   const [output, setOutput] = useState<string>('');
   const [error, setError] = useState<string>('');
-  const [isOutputVisible, setIsOutputVisible] = useState(false);
-  
-  const { 
-    currentUser, 
-    project, 
-    assets, 
-    selectedAsset,
-    updateAssetContent 
-  } = useStore();
+  const [isRunning, setIsRunning] = useState(false);
+  const [isConnected, setIsConnected] = useState(false);
+  const { roomId } = useParams<{ roomId: string }>();
 
-  // Initialize Monaco Editor
   useEffect(() => {
-    if (editorRef.current && !editor) {
-      const newEditor = monaco.editor.create(editorRef.current, {
-        value: '',
-        language: 'javascript',
-        theme: 'vs-dark',
-        automaticLayout: true,
-        minimap: { enabled: true },
-        scrollBeyondLastLine: false,
-        fontSize: 14,
-        lineNumbers: 'on',
-        roundedSelection: false,
-        scrollbar: {
-          vertical: 'visible',
-          horizontal: 'visible'
-        },
-        cursorStyle: 'line',
-        cursorBlinking: 'smooth',
-        cursorSmoothCaretAnimation: 'on',
-        cursorWidth: 2,
-        renderWhitespace: 'selection',
-        renderLineHighlight: 'all',
-        contextmenu: true,
-        quickSuggestions: true,
-        suggestOnTriggerCharacters: true,
-        acceptSuggestionOnEnter: 'on',
-        tabCompletion: 'on',
-        wordBasedSuggestions: true,
-        parameterHints: {
-          enabled: true,
-          cycle: true,
-      }
-      });
+    if (roomId) {
+      // For testing, we'll use a mock user
+      const mockUser: User = {
+        id: 'test-user-1',
+        name: 'Test User',
+        email: 'test@example.com',
+        color: '#ff0000',
+        friends: []
+      };
+      
+      collaborationService.connect(roomId, mockUser);
+      
+      // Set up event listeners
+      const handleConnect = () => {
+        setIsConnected(true);
+        console.log('Connected to collaboration server');
+      };
 
-      // Set up collaboration
-      if (currentUser && project) {
-        collaborationService.connect(project.id, currentUser);
-        collaborationService.bindEditor(newEditor);
-      }
+      const handleDisconnect = () => {
+        setIsConnected(false);
+        console.log('Disconnected from collaboration server');
+      };
 
-      // Handle cursor position updates
-      newEditor.onDidChangeCursorPosition(e => {
-        if (currentUser) {
-          collaborationService.updateCursor({
-            line: e.position.lineNumber,
-            column: e.position.column
-          });
-        }
-      });
+      const handleCodeChange = (newCode: string) => {
+        setCode(newCode);
+      };
 
-      setEditor(newEditor);
+      collaborationService.on('connect', handleConnect);
+      collaborationService.on('disconnect', handleDisconnect);
+      collaborationService.on('code-change', handleCodeChange);
 
       return () => {
-        newEditor.dispose();
-        setEditor(null);
+        collaborationService.removeListener('connect', handleConnect);
+        collaborationService.removeListener('disconnect', handleDisconnect);
+        collaborationService.removeListener('code-change', handleCodeChange);
+        collaborationService.disconnect();
       };
     }
-  }, [editorRef, editor, currentUser, project]);
+  }, [roomId]);
 
-  // Update editor content when selected asset changes
-  useEffect(() => {
-    if (editor && selectedAsset) {
-      const asset = assets.find(a => a.id === selectedAsset);
-      if (asset && asset.content) {
-        editor.setValue(asset.content);
-        editor.updateOptions({ language: asset.metadata?.language || 'javascript' });
+  const handleEditorDidMount = (editor: any) => {
+    editorRef.current = editor;
+    if (roomId) {
+      collaborationService.bindEditor(editor);
+    }
+  };
+
+  const handleCodeChange = (value: string | undefined) => {
+    if (value) {
+      setCode(value);
+      if (roomId) {
+        collaborationService.sendCodeChange(value);
       }
     }
-  }, [editor, selectedAsset, assets]);
+  };
 
-  // Handle editor content changes
-  useEffect(() => {
-    if (editor && selectedAsset) {
-      const disposable = editor.onDidChangeModelContent(() => {
-        const content = editor.getValue();
-        updateAssetContent(selectedAsset, content);
-      });
-      return () => disposable.dispose();
+  const runCode = async () => {
+    if (!code.trim()) {
+      setError('Please enter some code to run');
+      return;
     }
-  }, [editor, selectedAsset, updateAssetContent]);
 
-  // Handle code execution
-  const handleExecute = async () => {
-    if (!editor || !selectedAsset) return;
-
-    setIsExecuting(true);
+    setIsRunning(true);
     setError('');
     setOutput('');
-    setIsOutputVisible(true);
 
     try {
-      const result = await codeExecutionService.executeCode({
-        ...assets.find(a => a.id === selectedAsset)!,
-        content: editor.getValue()
-      });
-
-      if (result.error) {
-        setError(result.error);
-      } else {
+      const result = await executionService.executeCode(code, language);
+      if (result?.output) {
         setOutput(result.output);
       }
+      if (result?.error) {
+        setError(result.error);
+      }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Execution failed');
+      setError(err instanceof Error ? err.message : 'An error occurred while running the code');
     } finally {
-      setIsExecuting(false);
+      setIsRunning(false);
     }
   };
 
-  // Handle stop execution
-  const handleStop = () => {
-    codeExecutionService.stopExecution();
-    setIsExecuting(false);
-  };
+  const testEnvironment = async () => {
+    const testCode = `import sys
+import platform
+print(f"Python Version: {sys.version}")
+print(f"Platform: {platform.platform()}")
+print("Environment test successful!")`;
 
-  // Toggle fullscreen
-  const toggleFullscreen = () => {
-    if (!editorRef.current) return;
+    setIsRunning(true);
+    setError('');
+    setOutput('');
 
-    if (!isFullscreen) {
-      editorRef.current.requestFullscreen();
-      setIsFullscreen(true);
-    } else {
-      document.exitFullscreen();
-      setIsFullscreen(false);
+    try {
+      const result = await executionService.executeCode(testCode, 'python');
+      if (result?.output) {
+        setOutput(result.output);
+      }
+      if (result?.error) {
+        setError(result.error);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An error occurred while testing the environment');
+    } finally {
+      setIsRunning(false);
     }
   };
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex items-center justify-between p-2 bg-gray-800 text-white">
-        <div className="flex items-center space-x-2">
+      <div className="flex justify-between items-center p-4 bg-gray-800">
+        <div className="flex items-center space-x-4">
           <button
-            onClick={handleExecute}
-            disabled={isExecuting}
-            className="px-3 py-1 bg-green-600 hover:bg-green-700 rounded flex items-center space-x-1"
+            onClick={runCode}
+            disabled={isRunning}
+            className={`px-4 py-2 rounded ${
+              isRunning
+                ? 'bg-gray-600 cursor-not-allowed'
+                : 'bg-green-600 hover:bg-green-700'
+            } text-white`}
           >
-            {isExecuting ? (
-              <Loader className="w-4 h-4 animate-spin" />
-            ) : (
-              <Play className="w-4 h-4" />
-            )}
-            <span>Run</span>
+            {isRunning ? 'Running...' : 'Run Code'}
           </button>
           <button
-            onClick={handleStop}
-            disabled={!isExecuting}
-            className="px-3 py-1 bg-red-600 hover:bg-red-700 rounded flex items-center space-x-1"
+            onClick={testEnvironment}
+            disabled={isRunning}
+            className={`px-4 py-2 rounded ${
+              isRunning
+                ? 'bg-gray-600 cursor-not-allowed'
+                : 'bg-blue-600 hover:bg-blue-700'
+            } text-white`}
           >
-            <StopCircle className="w-4 h-4" />
-            <span>Stop</span>
+            Test Environment
           </button>
         </div>
         <div className="flex items-center space-x-2">
-          <button
-            onClick={() => setIsOutputVisible(!isOutputVisible)}
-            className="px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded flex items-center space-x-1"
-          >
-            <Terminal className="w-4 h-4" />
-            <span>Output</span>
-          </button>
-          <button
-            onClick={toggleFullscreen}
-            className="px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded"
-          >
-            {isFullscreen ? (
-              <Minimize2 className="w-4 h-4" />
-            ) : (
-              <Maximize2 className="w-4 h-4" />
-            )}
-          </button>
+          <div className={`w-3 h-3 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`} />
+          <span className="text-sm text-gray-300">
+            {isConnected ? 'Connected' : 'Disconnected'}
+          </span>
         </div>
       </div>
-      
-      <div className="flex-1 flex">
-        <div
-          ref={editorRef}
-          className="flex-1"
-        />
-        {isOutputVisible && (
-          <div className="w-1/3 bg-gray-900 text-white p-4 overflow-auto">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold">Output</h3>
-              <button
-                onClick={() => setIsOutputVisible(false)}
-                className="text-gray-400 hover:text-white"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            {error ? (
-              <div className="text-red-500">{error}</div>
-            ) : (
-              <pre className="whitespace-pre-wrap">{output}</pre>
-            )}
+
+      <div className="flex-1 grid grid-cols-2 gap-4 p-4">
+        <div className="h-full">
+          <Editor
+            height="100%"
+            defaultLanguage={language}
+            defaultValue={code}
+            theme="vs-dark"
+            onChange={handleCodeChange}
+            onMount={handleEditorDidMount}
+            options={{
+              minimap: { enabled: true },
+              fontSize: 14,
+              lineNumbers: 'on',
+              roundedSelection: false,
+              scrollBeyondLastLine: false,
+              automaticLayout: true,
+            }}
+          />
+        </div>
+        <div className="h-full flex flex-col">
+          <div className="flex-1 bg-gray-900 p-4 rounded overflow-auto">
+            <pre className="text-white font-mono text-sm">
+              {output || 'Output will appear here...'}
+            </pre>
           </div>
-        )}
+          {error && (
+            <div className="mt-2 p-4 bg-red-900 text-red-100 rounded">
+              <pre className="font-mono text-sm">{error}</pre>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
 };
+
+export default CodeEditor;
