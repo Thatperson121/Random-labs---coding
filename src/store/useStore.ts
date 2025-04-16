@@ -1,8 +1,10 @@
 import { create } from 'zustand';
 import { User, Project, Asset, FriendRequest } from '../types';
-import { authAPI, projectsAPI } from '../services/api';
+import { authAPI, projectsAPI, firebaseAPI } from '../services/api';
 
+type UserInfo = firebase.UserInfo;
 interface State {
+  activeFile: string | null;
   currentUser: User | null;
   project: Project | null;
   collaborators: User[];
@@ -10,20 +12,23 @@ interface State {
   isAIPanelOpen: boolean;
   friendRequests: FriendRequest[];
   projects: Project[];
+  user: UserInfo | null;
   isLoading: boolean;
   error: string | null;
-  
+
   // Auth actions
   setCurrentUser: (user: User | null) => void;
   loginAsGuest: (name?: string) => Promise<void>;
+  setUser: (user: UserInfo | null) => void;
+  getOtherUsersCode: () => Promise<Project[]>;
   logout: () => Promise<void>;
   
   // Project actions
   setProject: (project: Project | null) => void;
+  setActiveFile: (fileId: string | null) => void;
   setCollaborators: (collaborators: User[]) => void;
   setAssets: (assets: Asset[]) => void;
   fetchProjects: () => Promise<void>;
-  getUserProjects: (userId: string) => Promise<Project[]>;
   fetchTopProjects: (limit?: number) => Promise<void>;
   addProject: (project: Omit<Project, 'id'>) => Promise<void>;
   updateProject: (projectId: string, updates: Partial<Project>) => Promise<void>;
@@ -40,6 +45,7 @@ interface State {
   saveProject: () => Promise<Project | undefined>;
 }
 
+
 const GUEST_USER: User = {
   id: 'guest',
   name: 'Guest User',
@@ -49,6 +55,7 @@ const GUEST_USER: User = {
 };
 
 export const useStore = create<State>((set, get) => ({
+  activeFile: null,
   currentUser: null,
   project: null,
   collaborators: [],
@@ -56,6 +63,7 @@ export const useStore = create<State>((set, get) => ({
   isAIPanelOpen: false,
   friendRequests: [],
   projects: [],
+  user: null,
   isLoading: false,
   error: null,
   
@@ -72,11 +80,19 @@ export const useStore = create<State>((set, get) => ({
     }
   },
   
+  setUser: (user) => set({ user: user }),
+  
+  getOtherUsersCode: async () => {
+    set({ isLoading: true, error: null });
+    const result = await firebaseAPI.getAllPublicProjects();
+    set({ isLoading: false, projects: result });
+    return result;
+  },
+  
   logout: async () => {
     set({ isLoading: true, error: null });
     try {
-      await authAPI.signOut();
-      set({ currentUser: null, isLoading: false });
+      set({ currentUser: null, isLoading: false, user: null });
     } catch (error) {
       set({ error: 'Failed to sign out', isLoading: false });
     }
@@ -84,40 +100,29 @@ export const useStore = create<State>((set, get) => ({
   
   // Project actions
   setProject: (project) => set({ project }),
+  setActiveFile: (fileId) => set({ activeFile: fileId }),
   setCollaborators: (collaborators) => set({ collaborators }),
   setAssets: (assets) => set({ assets }),
   
   fetchProjects: async () => {
     set({ isLoading: true, error: null });
     try {
-      const projects = await projectsAPI.getAllProjects();
-      set({ projects, isLoading: false });
-    } catch (error) {
-      set({ error: 'Failed to fetch projects', isLoading: false });
-    }
-  },
-  
-  getUserProjects: async (userId: string) => {
-    set({ isLoading: true, error: null });
-    try {
-      const userProjects = await projectsAPI.getUserProjects(userId);
-      set({ projects: userProjects, isLoading: false });
-      return userProjects;
+      if (get().user) {
+        const projects = await firebaseAPI.getUserProjects(get().user?.uid);
+        set({ projects, isLoading: false });
+      } else {
+        set({ projects: [], isLoading: false });
+      }
     } catch (error) {
       set({ error: 'Failed to fetch user projects', isLoading: false });
-      return [];
     }
   },
   
   fetchTopProjects: async (limit = 3) => {
     set({ isLoading: true, error: null });
-    try {
-      const projects = await projectsAPI.getTopProjects(limit);
-      set({ projects, isLoading: false });
-    } catch (error) {
-      set({ error: 'Failed to fetch top projects', isLoading: false });
-    }
-  },
+    const projects = await firebaseAPI.getTopProjects(limit);
+    set({ projects, isLoading: false });
+  }, 
   
   addProject: async (projectData) => {
     const { currentUser } = get();
@@ -127,14 +132,13 @@ export const useStore = create<State>((set, get) => ({
     }
     
     set({ isLoading: true, error: null });
-    try {
-      const newProject = await projectsAPI.createProject({
-        ...projectData,
-        ownerId: currentUser.id,
-        visibility: 'public',
+    try {  
+      const newProject = await firebaseAPI.createProject({
+        ...projectData, 
+        userId: get().user?.uid,
       });
       
-      set(state => ({ 
+      set((state) => ({
         projects: [...state.projects, newProject],
         isLoading: false 
       }));
@@ -146,8 +150,8 @@ export const useStore = create<State>((set, get) => ({
   updateProject: async (projectId, updates) => {
     set({ isLoading: true, error: null });
     try {
-      const updatedProject = await projectsAPI.updateProject(projectId, updates);
-      set(state => ({
+      const updatedProject = await firebaseAPI.updateProject(projectId, updates);
+      set((state) => ({
         projects: state.projects.map(p => p.id === projectId ? updatedProject : p),
         isLoading: false
       }));
@@ -158,8 +162,8 @@ export const useStore = create<State>((set, get) => ({
   
   likeProject: async (projectId) => {
     try {
-      const updatedProject = await projectsAPI.likeProject(projectId);
-      set(state => ({
+      const updatedProject = await firebaseAPI.likeProject(projectId);
+      set((state) => ({
         projects: state.projects.map(p => p.id === projectId ? updatedProject : p)
       }));
     } catch (error) {
@@ -172,7 +176,7 @@ export const useStore = create<State>((set, get) => ({
   setFriendRequests: (requests) => set({ friendRequests: requests }),
   setProjects: (projects) => set({ projects }),
   
-  selectAsset: (assetId) => set(state => ({
+  selectAsset: (assetId) => set((state) => ({
     assets: state.assets.map(asset => {
       const markSelected = (a: Asset): Asset => {
         if (a.id === assetId) {
@@ -191,7 +195,7 @@ export const useStore = create<State>((set, get) => ({
     })
   })),
   
-  updateAssetContent: (assetId, content) => set(state => {
+  updateAssetContent: (assetId, content) => set((state) => {
     // Update the asset content in memory
     const updatedAssets = state.assets.map(asset => {
       const updateContent = (a: Asset): Asset => {
@@ -212,15 +216,15 @@ export const useStore = create<State>((set, get) => ({
     // Save the project with updated assets after content changes
     const { project } = state;
     if (project) {
+      const current = new Date();
       const updatedProject = {
         ...project,
         assets: updatedAssets,
-        updatedAt: new Date(),
+        updatedAt: current,
         lastModified: new Date().toISOString().split('T')[0]
       };
       
-      // Save project changes to the server/localStorage without blocking the UI
-      projectsAPI.updateProject(project.id, updatedProject)
+      firebaseAPI.updateProject(project.id, updatedProject)
         .catch(error => console.error('Failed to auto-save project:', error));
     }
     
@@ -233,13 +237,14 @@ export const useStore = create<State>((set, get) => ({
     if (!project) return;
     
     set({ isLoading: true, error: null });
+    const current = new Date();
     try {
       // Update project with current assets
-      const updatedProject = await projectsAPI.updateProject(project.id, {
+      const updatedProject = await firebaseAPI.updateProject(project.id, {
         ...project,
         assets,
-        updatedAt: new Date(),
-        lastModified: new Date().toISOString().split('T')[0]
+        updatedAt: current,
+        lastModified: current.toISOString().split('T')[0]
       });
       
       set({ project: updatedProject, isLoading: false });

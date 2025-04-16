@@ -1,16 +1,21 @@
-import React, { useState, useRef } from 'react';
-import { Upload, Image, FileText, Music, Film, Folder, Type, Plus, FolderPlus, Trash2, X, ChevronRight, ChevronLeft, Search } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { Upload, Image, FileText, Music, Film, Folder, Type, Plus, FolderPlus, Trash2, X, Search } from 'lucide-react';
 import { useStore } from '../store/useStore';
-import { Asset } from '../types';
+import { Asset, ProjectFile, User } from '../types';
+import { collection, getDocs, query, where } from 'firebase/firestore';
+import { db } from '../firebase';
 
 type AssetCategory = 'all' | 'images' | 'audio' | 'fonts' | 'sprites' | 'code';
-type FileLanguage = 'javascript' | 'typescript' | 'python' | 'java' | 'html' | 'css' | 'json' | 'text';
+export type FileLanguage = 'javascript' | 'typescript' | 'python' | 'java' | 'html' | 'css' | 'json' | 'text';
 
 interface AssetPanelProps {
   isCollapsed?: boolean;
+  onOpenFile: (file: ProjectFile) => void;
 }
 
-export function AssetPanel({ isCollapsed = false }: AssetPanelProps) {
+export function AssetPanel({ isCollapsed = false, onOpenFile }: AssetPanelProps) {
+  const user = useStore((state) => state.user);
+  const getCode = useStore((state) => state.getCode);
   const assets = useStore((state) => state.assets);
   const [selectedCategory, setSelectedCategory] = useState<AssetCategory>('all');
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set(['root']));
@@ -23,6 +28,12 @@ export function AssetPanel({ isCollapsed = false }: AssetPanelProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedLanguage, setSelectedLanguage] = useState<FileLanguage>('javascript');
   const [showLanguageSelect, setShowLanguageSelect] = useState(false);
+  const [projectFiles, setProjectFiles] = useState<ProjectFile[]>([]);
+  const addFile = useStore((state) => state.addFile);
+  const currentFile = useStore((state) => state.currentFile);
+  const setAssets = useStore((state) => state.setAssets);
+  const setCode = useStore((state) => state.setCode);
+
   const selectAsset = useStore((state) => state.selectAsset);
 
   const categories = [
@@ -53,10 +64,29 @@ export function AssetPanel({ isCollapsed = false }: AssetPanelProps) {
     const files = event.target.files;
     if (!files) return;
 
+     // Fetch project files
+    const fetchProjectFiles = () => {
+      const getFilesRecursively = (assets: Asset[]): ProjectFile[] => {
+        return assets.flatMap((asset) => {
+          if (asset.type === 'file' && asset.fileType) {
+            return [{ id: asset.id, name: asset.name, content: "", fileType: asset.fileType}];
+          } else if (asset.children) {
+            return getFilesRecursively(asset.children);
+          }
+          return [];
+        });
+      };
+    
+      const newFiles = getFilesRecursively(sampleAssets);
+      setProjectFiles(newFiles);
+    };
+
     setIsImporting(true);
     
+
     // Process each file
     Array.from(files).forEach(file => {
+      console.log('FILE', file)
       const reader = new FileReader();
       reader.onload = () => {
         const newAsset: Asset = {
@@ -68,11 +98,7 @@ export function AssetPanel({ isCollapsed = false }: AssetPanelProps) {
           lastModified: new Date(file.lastModified).toISOString(),
           url: reader.result as string,
         };
-
-        // Here you would typically upload the file to your backend
-        // For now, we'll just add it to the local state
-        // useStore.setState(state => ({
-        //   assets: [...state.assets, newAsset]
+        // useStore.setState(state => ({assets: [...state.assets, newAsset]
         // }));
       };
 
@@ -95,6 +121,30 @@ export function AssetPanel({ isCollapsed = false }: AssetPanelProps) {
     if (asset.fileType?.startsWith('video')) return <Film className="w-5 h-5" />;
     return <FileText className="w-5 h-5" />;
   };
+
+
+  useEffect(() => {
+    const fetchProjectFiles = async () => {
+      if (!user) return;
+  
+      try {
+        const q = query(collection(db, "projects"), where("userId", "==", user?.uid));
+        const querySnapshot = await getDocs(q);
+        const files = querySnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data(),
+        })) as ProjectFile[];
+        if(files.length > 0) {
+          setProjectFiles(files)
+        }
+      } catch (error) {
+        console.error("Error fetching project files:", error);
+      }
+    };
+  
+    fetchProjectFiles();
+  }, [user]);
+
 
   const sampleAssets: Asset[] = [
     {
@@ -174,6 +224,8 @@ export function AssetPanel({ isCollapsed = false }: AssetPanelProps) {
     },
   ];
 
+  useEffect(() => { setAssets(sampleAssets)}, [])
+
   const toggleFolder = (id: string) => {
     const newExpanded = new Set(expandedFolders);
     if (newExpanded.has(id)) {
@@ -207,13 +259,12 @@ export function AssetPanel({ isCollapsed = false }: AssetPanelProps) {
   };
 
   const handleDelete = (asset: Asset) => {
+    if (asset.type != 'file') return
     if (!confirm(`Are you sure you want to delete ${asset.name}?`)) return;
-
-    // Here you would typically make an API call to delete the file
-    // For now, we'll just remove it from the local state
+  
     const removeAsset = (assets: Asset[], assetId: string): Asset[] => {
       return assets.filter(a => {
-        if (a.id === assetId) return false;
+        if (a.id === assetId ) return false;
         if (a.children) {
           a.children = removeAsset(a.children, assetId);
         }
@@ -221,9 +272,7 @@ export function AssetPanel({ isCollapsed = false }: AssetPanelProps) {
       });
     };
 
-    useStore.setState(state => ({
-      assets: removeAsset([...state.assets], asset.id)
-    }));
+    setAssets(removeAsset([...assets], asset.id))
 
     if (selectedAsset === asset.id) {
       setSelectedAsset(null);
@@ -284,17 +333,15 @@ export function AssetPanel({ isCollapsed = false }: AssetPanelProps) {
       metadata: isCreatingNew === 'file' ? { language: selectedLanguage } : undefined,
     };
 
-    // Add the new asset to the current path
     const addAssetToPath = (assets: Asset[], path: string[], newAsset: Asset): Asset[] => {
       if (path.length === 0) {
         return [...assets, newAsset];
       }
-
       return assets.map(asset => {
         if (asset.id === path[0]) {
           return {
             ...asset,
-            children: addAssetToPath(asset.children || [], path.slice(1), newAsset)
+            children: addAssetToPath(asset.children ?? [], path.slice(1), newAsset)
           };
         }
         return asset;
@@ -302,7 +349,7 @@ export function AssetPanel({ isCollapsed = false }: AssetPanelProps) {
     };
 
     useStore.setState(state => ({
-      assets: addAssetToPath([...state.assets], currentPath, newAsset)
+      assets: addAssetToPath(state.assets, currentPath, newAsset)
     }));
 
     setIsCreatingNew(null);
@@ -311,20 +358,12 @@ export function AssetPanel({ isCollapsed = false }: AssetPanelProps) {
   };
 
   // Filter assets based on search query
-  const searchFilteredAssets = sampleAssets.filter(asset => {
+  const searchFilteredAssets = assets.filter(asset => {
     const searchMatch = !searchQuery || 
       asset.name.toLowerCase().includes(searchQuery.toLowerCase());
     
-    if (!searchMatch) {
-      // Also check children recursively
-      if (asset.children) {
-        const hasMatchingChild = asset.children.some(child => 
-          child.name.toLowerCase().includes(searchQuery.toLowerCase())
-        );
-        return hasMatchingChild;
-      }
-      return false;
-    }
+    if (!searchMatch && asset.children?.some(child => child.name.toLowerCase().includes(searchQuery.toLowerCase()))) return true;
+    if (!searchMatch) return false
     
     return true;
   });
@@ -414,12 +453,32 @@ export function AssetPanel({ isCollapsed = false }: AssetPanelProps) {
     if (searchQuery && !asset.name.toLowerCase().includes(searchQuery.toLowerCase())) {
       // But if it's a folder that might contain matching children, we should render it
       if (asset.type !== 'folder' || !asset.children?.some(child => 
-        child.name.toLowerCase().includes(searchQuery.toLowerCase())
+        child.name.toLowerCase().includes(searchQuery.toLowerCase()),
       )) {
         return null;
       }
     }
+  
+    if(asset.type === 'firebase'){
+      return <div className='w-full text-left px-2 py-1.5 hover:bg-gray-100 flex items-center group text-gray-700' key={asset.id}
+      onClick={() => {
+        const newAsset = projectFiles.find((e) => e.id == asset.id);
+        if(!newAsset) return;
+        addFile({ id: newAsset.id, name: newAsset.name, content: newAsset.content, fileType: newAsset.fileType})
+        onOpenFile({ id: newAsset.id, name: newAsset.name, content: newAsset.content, fileType: newAsset.fileType})
+        setCode(newAsset.content)
+      }}>
+      <span className="mr-2">
+        <FileText className="w-5 h-5" />
+      </span>
+      <span className="flex-1 truncate">{asset.name}</span>
+    </div>
+    }
 
+    if(asset.type == 'file' && !asset.fileType){
+      console.error("File does not have a file type", asset);
+      return null
+    }
     return (
       <div key={asset.id}>
         <div
@@ -431,7 +490,11 @@ export function AssetPanel({ isCollapsed = false }: AssetPanelProps) {
           <button
             className="flex-1 flex items-center"
             onClick={() => {
-              if (asset.type === 'folder') {
+              if(asset.type == 'file' && asset.fileType){
+                  addFile({id: asset.id, name: asset.name, content: "", fileType: asset.fileType})
+                  onOpenFile({id: asset.id, name: asset.name, content: "", fileType: asset.fileType})
+              }
+              else if (asset.type === 'folder') {
                 toggleFolder(asset.id);
                 setCurrentPath(prev => isExpanded ? prev.filter(p => p !== asset.id) : [...prev, asset.id]);
               }
@@ -461,6 +524,7 @@ export function AssetPanel({ isCollapsed = false }: AssetPanelProps) {
             <span className="flex-1 truncate">{asset.name}</span>
           </button>
           
+
           <div className="flex items-center">
             {asset.type === 'file' && (
               <span className="text-xs text-gray-400 mr-2">
@@ -596,6 +660,22 @@ export function AssetPanel({ isCollapsed = false }: AssetPanelProps) {
                 </button>
               ))}
             </div>
+          </div>
+
+          <div className="flex-1 overflow-y-auto">
+          {projectFiles.map((file) => (
+              <div key={file.id}>
+               {renderAsset({
+                      id: file.id,
+                      name: file.name,
+                      type: "firebase",
+                      fileType: file.fileType,
+                      size: file.content.length,
+                      lastModified: file.lastModified,
+                      metadata: { language: file.fileType}
+                    })}
+              </div>
+            ))}
           </div>
 
           <div className="flex-1 overflow-y-auto">

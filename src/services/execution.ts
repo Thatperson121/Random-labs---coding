@@ -5,6 +5,11 @@ interface ExecutionResult {
   error?: string;
   executionTime: number;
 }
+export interface WorkerExecutionResult {
+  output: string;
+  error?: string;
+  executionTime: number;
+}
 
 class CodeExecutionService {
   private worker: Worker | null = null;
@@ -17,10 +22,12 @@ class CodeExecutionService {
     this.worker.onmessage = (event) => {
       // Handle execution results
       const { type, data } = event.data;
-      if (type === 'executionComplete') {
-        this.handleExecutionComplete(data);
+      if (type === 'executionResult') {
+        const executionResult: WorkerExecutionResult = data;
+        this.handleExecutionComplete(executionResult);
       }
     };
+
 
     this.worker.onerror = (error) => {
       console.error('Execution worker error:', error);
@@ -34,7 +41,7 @@ class CodeExecutionService {
         output: '',
         error: 'No content to execute or already executing',
         executionTime: 0
-      };
+      } as ExecutionResult;
     }
 
     this.isExecuting = true;
@@ -45,7 +52,7 @@ class CodeExecutionService {
         resolve({
           output: '',
           error: 'Execution worker not initialized',
-          executionTime: 0
+          executionTime: 0,
         });
         return;
       }
@@ -54,8 +61,8 @@ class CodeExecutionService {
         this.isExecuting = false;
         resolve({
           output: '',
-          error: 'Execution timeout',
-          executionTime: performance.now() - startTime
+          error: "Execution timeout",
+          executionTime: performance.now() - startTime,
         });
       }, 30000); // 30 second timeout
 
@@ -63,30 +70,37 @@ class CodeExecutionService {
         type: 'execute',
         data: {
           code: asset.content,
-          language: asset.metadata?.language || 'javascript'
-        }
+          language: asset.metadata?.language || 'javascript',
+        },
       });
 
       const messageHandler = (event: MessageEvent) => {
         const { type, data } = event.data;
-        if (type === 'executionComplete') {
+        if (type === 'executionResult') {
           clearTimeout(timeout);
           this.worker?.removeEventListener('message', messageHandler);
           this.isExecuting = false;
-          resolve({
-            ...data,
-            executionTime: performance.now() - startTime
-          });
+
+          const workerResult: WorkerExecutionResult = data;
+
+          const finalResult: ExecutionResult = {
+            output: workerResult.output,
+            error: workerResult.error,
+            executionTime: performance.now() - startTime,
+          };
+
+          resolve(finalResult);
+
         }
       };
 
       this.worker.addEventListener('message', messageHandler);
     });
   }
-
-  private handleExecutionComplete(data: ExecutionResult) {
+  
+  private handleExecutionComplete(data: WorkerExecutionResult) {
     // Handle execution completion
-    console.log('Execution completed:', data);
+    console.log("Execution completed:", data);
   }
 
   stopExecution() {

@@ -6,14 +6,21 @@
   :root {
     --primary: #2563eb;
     --primary-rgb: 37, 99, 235;
-    --primary-dark: #1d4ed8;
-    --secondary: #64748b;
-    --accent: #8b5cf6;
+    --primary-dark: #1e40af;
+    --secondary: #4b5563;
+    --accent: #7c3aed;
+    --background: #1e1e1e; /* Dark background */
+    --panel-background: #252526; /* Dark panel background */
+    --text-color: #d4d4d4; /* Light text color */
+    --border-color: #3a3a3a; /* Dark border color */
+    --hover-color: #2c2c2c; /* Slightly lighter on hover */
+    --active-color: #333333; /* Slightly lighter on active */
   }
 
   body {
-    @apply antialiased text-gray-800 bg-gray-50;
+    @apply antialiased text-text-color bg-background;
   }
+
 }
 
 @layer components {
@@ -22,26 +29,58 @@
   }
 
   .btn-primary {
-    @apply btn bg-primary text-white hover:bg-primary-dark;
+    @apply btn bg-primary text-white hover:bg-primary-dark shadow-md;
   }
 
   .btn-secondary {
-    @apply btn bg-white text-gray-700 border border-gray-200 hover:bg-gray-50;
+    @apply btn bg-panel-background text-text-color border border-border-color hover:bg-hover-color;
   }
 
   .card {
-    @apply bg-white rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow duration-200;
+    @apply bg-panel-background rounded-md border border-border-color shadow-md hover:shadow-lg transition-shadow duration-200;
   }
 
   .input {
-    @apply w-full px-4 py-2 rounded-lg border border-gray-200 focus:ring-2 focus:ring-primary-200 focus:border-primary outline-none transition-all duration-200;
+    @apply w-full px-3 py-2 rounded-md bg-panel-background border border-border-color text-text-color focus:ring-2 focus:ring-primary-500 focus:border-primary outline-none transition-all duration-200;
+  }
+
+  .sidebar {
+    @apply bg-panel-background border-r border-border-color h-screen overflow-y-auto;
+  }
+
+  .sidebar-item {
+    @apply px-4 py-2 hover:bg-hover-color cursor-pointer text-text-color;
+  }
+
+  .sidebar-item.active {
+    @apply bg-active-color;
+  }
+
+  .header {
+    @apply bg-panel-background border-b border-border-color p-4 flex items-center justify-between;
+  }
+
+  .content-area {
+    @apply flex-grow p-4 overflow-y-auto;
+  }
+
+  .code-editor-wrapper {
+    @apply w-full h-full overflow-hidden;
+  }
+
+  .code-editor {
+    @apply w-full h-full bg-panel-background text-text-color;
+  }
+
+  .terminal {
+      @apply bg-black text-green-400 p-4 overflow-y-auto h-64;
   }
 }
 
 /* Modern scrollbar */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 10px;
+  height: 10px;
 }
 
 ::-webkit-scrollbar-track {
@@ -49,5 +88,5 @@
 }
 
 ::-webkit-scrollbar-thumb {
-  @apply bg-gray-300 rounded-full hover:bg-gray-400 transition-colors;
+  @apply bg-gray-600 rounded-full hover:bg-gray-500 transition-colors;
 }

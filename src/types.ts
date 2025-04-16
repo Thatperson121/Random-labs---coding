@@ -1,12 +1,14 @@
+import { Timestamp } from 'firebase/firestore';
+
 export interface User {
   id: string;
   name: string;
   email: string;
   color: string;
-  friends: string[];
+  friends?: string[];
   cursor?: {
     line: number;
-    column: number;
+    column?: number;
   };
 }
 
@@ -19,8 +21,8 @@ export interface Project {
   stars: number;
   likes?: number;
   visibility?: 'private' | 'shared' | 'public';
-  collaborators?: string[];
-  ownerId?: string;
+  collaborators?: string[] | null;
+  ownerId?: string | null;
   code?: string;
   createdAt?: Date;
   updatedAt?: Date;
@@ -42,7 +44,14 @@ export interface Asset {
     [key: string]: any;
   };
   content?: string;
-  selected?: boolean;
+    selected?: boolean;
+    createdAt?: Timestamp;
+    updatedAt?: Timestamp;
+}
+
+export interface FirebaseProject extends Omit<Project, 'createdAt' | 'updatedAt'> {
+    createdAt?: Timestamp;
+    updatedAt?: Timestamp;
 }
 
 export interface FriendRequest {

@@ -1,73 +1,98 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useParams } from 'react-router-dom';
 import Split from 'react-split';
-import { Header } from './components/Header';
-import { CodeEditor } from './components/Editor';
+import { Editor } from './components/Editor';
 import { AIAssistant } from './components/AIAssistant';
 import { AssetPanel } from './components/AssetPanel';
 import { HomePage } from './pages/HomePage';
-import { NewProject } from './pages/NewProject';
-import { ExplorePage } from './pages/ExplorePage';
-import { SignInPage } from './pages/SignInPage';
-import { useStore } from './store/useStore';
-import { authAPI } from './services/api';
-import { Loader } from 'lucide-react';
+import { useStore, Asset, Project } from './store/useStore';
+import { executionService } from './services/execution';
+import { authAPI, dbAPI } from './services/api';
+import { Loader, LogIn, LogOut, Plus } from 'lucide-react';
+import { getAuth, signInWithPopup, GoogleAuthProvider, signOut } from 'firebase/auth';
+import { firebaseApp } from './firebase';
 
-function ProjectEditor() {
+
+const ProjectEditor: React.FC = () => {
   const [isRightPanelCollapsed, setIsRightPanelCollapsed] = useState(false);
   const { id } = useParams<{ id: string }>();
-  const { projects, setProject, setAssets, selectAsset } = useStore();
+  const { projects, setProject, setAssets, selectAsset, project, assets } = useStore();
+  const [isLoading, setIsLoading] = useState(false);
 
-  // Load project and set initial file when component mounts
+  // Load project and set initial file
+  const codeRef = useRef<string | null>(null);
   useEffect(() => {
     if (id) {
       const currentProject = projects.find(p => p.id === id);
       if (currentProject) {
         // Set the current project
         setProject(currentProject);
-        
+
         // Set the project assets
         if (currentProject.assets) {
           setAssets(currentProject.assets);
-          
-          // If there's only one asset, select it
-          if (currentProject.assets.length === 1 && currentProject.assets[0].type === 'file') {
-            selectAsset(currentProject.assets[0].id);
-          } else {
-            // Otherwise find the first file
-            const findFirstFile = (assets: any[]): string | null => {
-              for (const asset of assets) {
-                if (asset.type === 'file') {
-                  return asset.id;
-                }
-                if (asset.children && asset.children.length > 0) {
-                  const fileId = findFirstFile(asset.children);
-                  if (fileId) return fileId;
-                }
-              }
-              return null;
-            };
-            
-            // Select the first file
-            const firstFileId = findFirstFile(currentProject.assets);
-            if (firstFileId) {
-              selectAsset(firstFileId);
-            }
+          const firstFile = findFirstFile(currentProject.assets);
+          if (firstFile) {
+            selectAsset(firstFile.id);
+            codeRef.current = firstFile.code;
           }
         }
       }
     }
   }, [id, projects, setProject, setAssets, selectAsset]);
 
+  const findFirstFile = useCallback((assets: Asset[]): { id: string; code: string } | null => {
+    for (const asset of assets) {
+      if (asset.type === 'file') {
+        return { id: asset.id, code: asset.code };
+      }
+      if (asset.children && asset.children.length > 0) {
+        const file = findFirstFile(asset.children);
+        if (file) return file;
+      }
+    }
+    return null;
+  }, []);
+
+  const saveProject = useCallback(async () => {
+    if (project && project.id) {
+      try {
+        setIsLoading(true);
+        const projectId = project.id;
+        const updatedProject: Project = {
+          ...project,
+          assets,
+        };
+        await dbAPI.updateProject(projectId, updatedProject);
+        console.log('Project saved successfully.');
+      } catch (error) {
+        console.error('Failed to save project:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    } else {
+      console.warn('No project ID to save to.');
+    }
+  }, [project, assets]);
+
   const toggleRightPanel = () => {
     setIsRightPanelCollapsed(!isRightPanelCollapsed);
   };
 
+  if (!project) {
+    return <div>No project selected</div>;
+  }
+
   return (
-    <div className="flex-1 flex flex-col">
+    <div className="flex-1 flex flex-col relative">
+      {isLoading && (
+        <div className="absolute top-0 left-0 w-full h-full bg-gray-500 bg-opacity-50 flex items-center justify-center z-50">
+          <Loader className="w-10 h-10 text-indigo-500 animate-spin" />
+        </div>
+      )}
       <Split
         className="flex-1 flex"
-        sizes={isRightPanelCollapsed ? [98, 2] : [75, 25]}
+        sizes={isRightPanelCollapsed ? [99, 1] : [75, 25]}
         minSize={[500, isRightPanelCollapsed ? 30 : 200]}
         maxSize={[Infinity, isRightPanelCollapsed ? 40 : 400]}
         gutterSize={4}
@@ -80,9 +105,17 @@ function ProjectEditor() {
         })}
       >
         <div className="flex-1 relative">
-          <CodeEditor />
+          {codeRef.current !== null ? (
+            <Editor initialCode={codeRef.current} />
+          ) : null}
         </div>
         <div className="flex h-full relative">
+          <button
+            onClick={saveProject}
+            className="absolute top-2 right-2 bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded z-10"
+          >
+            Save
+          </button>
           <button
             className={`absolute -left-6 top-1/2 -translate-y-1/2 z-10 bg-gray-200 hover:bg-gray-300 p-1.5 rounded-l transition-transform duration-300 ${
               isRightPanelCollapsed ? 'rotate-180' : ''
@@ -99,11 +132,13 @@ function ProjectEditor() {
       <AIAssistant />
     </div>
   );
-}
+};
 
-function Documentation() {
+
+const Documentation: React.FC = () => {
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
+
       <h1 className="text-3xl font-bold text-gray-900 mb-8">Documentation</h1>
       <div className="prose prose-lg">
         <h2>Getting Started</h2>
@@ -131,9 +166,61 @@ function Documentation() {
       </div>
     </div>
   );
-}
+};
 
-function About() {
+const ProjectHeader: React.FC = () => {
+  const { project, selectAsset, assets, createProject } = useStore();
+  
+  const handleFileClick = (assetId: string) => {
+    selectAsset(assetId);
+  };
+
+  return (
+    <div className="bg-white border-b border-gray-200 px-4 py-2 flex justify-between items-center">
+      <div>
+        <h2 className="text-lg font-medium">{project?.name || 'Untitled Project'}</h2>
+      </div>
+      <div className="flex space-x-4">
+        {assets.map((asset) => (
+          <div key={asset.id} className="flex items-center" title={asset.name}>
+            {asset.type === "folder" ? (
+              <div className="text-gray-600 mr-2">{asset.name}</div>
+            ) : (
+              <button
+                key={asset.id}
+                className="text-blue-500 hover:underline"
+                onClick={() => handleFileClick(asset.id)}
+              >
+                {asset.name}
+              </button>
+            )}
+          </div>
+        ))}
+        <button
+          onClick={createProject}
+          className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
+        >
+          <Plus />
+          New Project
+        </button>
+        <button
+          onClick={() => {
+
+            const code = `console.log("Hello, world!");`;
+            executionService.runCode(code).then((result) => {
+              console.log('Execution result:', result);
+            });
+          }}
+          className="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded"
+        >
+          Run Code
+        </button>
+      </div>
+    </div>
+  );
+};
+
+const About: React.FC = () => {
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
       <h1 className="text-3xl font-bold text-gray-900 mb-8">About Random Labs</h1>
@@ -174,11 +261,44 @@ function About() {
       </div>
     </div>
   );
-}
+};
 
-function App() {
-  const { currentUser, setCurrentUser, fetchTopProjects } = useStore();
+
+const AuthButtons: React.FC = () => {
+  const { setCurrentUser, currentUser } = useStore();
+  const auth = getAuth(firebaseApp);
+  const provider = new GoogleAuthProvider();
+  const handleSignIn = async () => {
+    try {
+      const result = await signInWithPopup(auth, provider);
+      const user = result.user;
+      setCurrentUser(user);
+    } catch (error) {
+      console.error('Sign in failed', error);
+    }
+  };
+
+  const handleSignOut = async () => {
+    try {
+      await signOut(auth);
+      setCurrentUser(null);
+    } catch (error) {
+      console.error('Sign out failed', error);
+    }
+  };
+  return (
+    <div>
+      {currentUser ? <button className="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded" onClick={handleSignOut}><LogOut/></button> : <button className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded" onClick={handleSignIn}><LogIn/></button>}
+    </div>
+  );
+};
+
+const App: React.FC = () => {
+  const { currentUser, setCurrentUser, fetchTopProjects, fetchProjects } = useStore();
   const [isInitializing, setIsInitializing] = useState(true);
+
+  const auth = getAuth(firebaseApp);
+
 
   // Check for existing user session and load initial data
   useEffect(() => {
@@ -186,19 +306,26 @@ function App() {
       try {
         // Try to get current user from local storage
         const user = await authAPI.getCurrentUser();
-        if (user) {
+        if (user && user.uid) {
           setCurrentUser(user);
+          await fetchProjects(user.uid);
         }
         // Load featured projects
         await fetchTopProjects(3);
+
       } catch (error) {
         console.error('Failed to initialize app:', error);
       } finally {
         setIsInitializing(false);
       }
     };
+    const unsubscribe = auth.onAuthStateChanged(user => {
+      if (user) {
+        setCurrentUser(user);
+      }
+    });
 
-    initializeApp();
+    initializeApp()
   }, [setCurrentUser, fetchTopProjects]);
 
   if (isInitializing) {
@@ -212,20 +339,19 @@ function App() {
   return (
     <Router>
       <div className="h-screen flex flex-col bg-gray-50">
-        <Header />
+        {currentUser && <ProjectHeader />}
+        <div className='fixed top-2 right-2 z-50'><AuthButtons /></div>
         <Routes>
           <Route path="/" element={<HomePage />} />
-          <Route path="/signin" element={<SignInPage />} />
-          <Route path="/new-project" element={<NewProject />} />
           <Route path="/project/:id" element={<ProjectEditor />} />
-          <Route path="/explore" element={<ExplorePage />} />
           <Route path="/docs" element={<Documentation />} />
           <Route path="/about" element={<About />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </div>
     </Router>
-  );
-}
+  );};
+
+export default App;
 
 export default App;

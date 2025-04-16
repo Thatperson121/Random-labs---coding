@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import * as monaco from 'monaco-editor';
+import * as monaco from 'monaco-editor/esm/vs/editor/editor.api';
 import { Play, Loader, StopCircle, Terminal, Maximize2, Minimize2, X } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { codeExecutionService } from '../services/execution';
@@ -180,7 +180,7 @@ button:hover {
   },
   json: {
     defaultCode: `{
-  "name": "Sample JSON",
+  "name": "Sample",
   "version": "1.0.0",
   "description": "This is a sample JSON file",
   "author": {
@@ -195,6 +195,7 @@ button:hover {
     runnerTemplate: (code: string) => code
   }
 };
+
 
 export const CodeEditor: React.FC = () => {
   const editorRef = useRef<HTMLDivElement>(null);
@@ -216,6 +217,7 @@ export const CodeEditor: React.FC = () => {
   // Initialize Monaco Editor
   useEffect(() => {
     if (editorRef.current && !editor) {
+      monaco.languages.typescript.typescriptDefaults.setCompilerOptions({ strict: true });
       const newEditor = monaco.editor.create(editorRef.current, {
         value: '',
         language: 'javascript',
@@ -223,7 +225,7 @@ export const CodeEditor: React.FC = () => {
         automaticLayout: true,
         minimap: { enabled: true },
         scrollBeyondLastLine: false,
-        fontSize: 14,
+        fontSize: 16,
         lineNumbers: 'on',
         roundedSelection: false,
         scrollbar: {
@@ -245,7 +247,7 @@ export const CodeEditor: React.FC = () => {
         parameterHints: {
           enabled: true,
           cycle: true,
-      }
+        },
       });
 
       // Set up collaboration
@@ -271,7 +273,7 @@ export const CodeEditor: React.FC = () => {
         setEditor(null);
       };
     }
-  }, [editorRef, editor, currentUser, project]);
+  }, [editorRef, editor, currentUser, project, selectedAsset]);
 
   // Update editor content when selected asset changes
   useEffect(() => {
@@ -279,11 +281,43 @@ export const CodeEditor: React.FC = () => {
       const asset = assets.find(a => a.id === selectedAsset);
       if (asset && asset.content) {
         editor.setValue(asset.content);
-        editor.updateOptions({ language: asset.metadata?.language || 'javascript' });
+        editor.updateOptions({ language: asset.metadata?.language ?? 'javascript' });
+        updateLanguage(asset.metadata?.language ?? 'javascript');
       }
     }
-  }, [editor, selectedAsset, assets]);
+  }, [editor, selectedAsset, assets, updateLanguage]);
 
+  const updateLanguage = (language: string) => {
+    switch (language) {
+      case 'javascript':
+        monaco.languages.typescript.javascriptDefaults.setDiagnosticsOptions({
+          noSemanticValidation: false,
+          noSyntaxValidation: false,
+        });
+        break;
+      case 'typescript':
+        monaco.languages.typescript.typescriptDefaults.setDiagnosticsOptions({
+          noSemanticValidation: false,
+          noSyntaxValidation: false,
+        });
+        break;
+      case 'html':
+        break;
+      case 'css':
+        break;
+      case 'json':
+        break;
+      case 'python':
+        break;
+      case 'java':
+        break;
+      default:
+        monaco.languages.typescript.javascriptDefaults.setDiagnosticsOptions({
+          noSemanticValidation: false,
+          noSyntaxValidation: false,
+        });
+    }
+  };
   // Handle editor content changes
   useEffect(() => {
     if (editor && selectedAsset) {
@@ -294,7 +328,7 @@ export const CodeEditor: React.FC = () => {
       return () => disposable.dispose();
     }
   }, [editor, selectedAsset, updateAssetContent]);
-
+  
   // Handle code execution
   const handleExecute = async () => {
     if (!editor || !selectedAsset) return;
@@ -403,12 +437,12 @@ export const CodeEditor: React.FC = () => {
                 <X className="w-5 h-5" />
               </button>
             </div>
-            {error ? (
+            {error && error !== '' ? (
               <div className="text-red-500">{error}</div>
             ) : (
               <pre className="whitespace-pre-wrap">{output}</pre>
             )}
-          </div>
+           </div>
         )}
       </div>
     </div>

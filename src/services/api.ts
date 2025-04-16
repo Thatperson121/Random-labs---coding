@@ -1,40 +1,19 @@
-import { User, Project, Asset } from '../types';
+import { User, Project, UserData } from '../types';
+import { worker } from '../workers/execution.worker';
 
-// Configuration object that will use environment variables in production
-export const apiConfig = {
-  // Use import.meta.env to access Vite environment variables
-  // In development, this will use the default value after ||
-  // In production, it will use the environment variable set in Netlify
-  apiKey: import.meta.env.VITE_API_KEY || 'development_api_key',
-  apiUrl: import.meta.env.VITE_API_URL || 'https://api.example.com',
-  storagePrefix: import.meta.env.VITE_STORAGE_PREFIX || 'codecollab',
+
+// Configuration for local storage
+const storagePrefix = import.meta.env.VITE_STORAGE_PREFIX || 'codecollab';
+
+// Function to retrieve data from the worker
+const workerRequest = async (action: string, payload: any = null): Promise<any> => {
+  return worker.run({ action, payload });
 };
-
-// Firebase-like implementation using local storage when server is unavailable
-const STORAGE_KEYS = {
-  USERS: `${apiConfig.storagePrefix}_users`,
-  PROJECTS: `${apiConfig.storagePrefix}_projects`,
-  CURRENT_USER: `${apiConfig.storagePrefix}_current_user`,
-};
-
-// Simulate network delay for a more realistic experience
-const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
-
-// Mock server data
-let serverUsers: User[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.USERS) || '[]');
-let serverProjects: Project[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.PROJECTS) || '[]');
-
-// Save data to local storage
-const saveToStorage = () => {
-  localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(serverUsers));
-  localStorage.setItem(STORAGE_KEYS.PROJECTS, JSON.stringify(serverProjects));
-};
-
 // Authentication API
 export const authAPI = {
   // Sign in (simulated)
   signIn: async (email: string, password: string): Promise<{ user: User | null; error?: string }> => {
-    await delay(800);
+
     
     // Log API key usage (this is just for demonstration, would not do in production)
     console.log('Using API configuration:', { 
@@ -44,32 +23,16 @@ export const authAPI = {
       usingApiKey: !!apiConfig.apiKey
     });
     
-    // Check if user exists
-    const user = serverUsers.find(u => u.email === email);
-    if (user) {
-      // In a real app, you would check the password here
-      localStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(user));
-      return { user };
-    }
-    
-    return { 
-      user: null, 
-      error: 'Invalid email or password. Try using guest access.'
-    };
+    return workerRequest("signIn", { email, password });
   },
   
   // Register (simulated)
   register: async (name: string, email: string, password: string): Promise<{ user: User | null; error?: string }> => {
-    await delay(800);
-    
-    // Check if email already exists
-    if (serverUsers.some(u => u.email === email)) {
-      return {
-        user: null,
-        error: 'Email already in use. Try a different email or use guest access.'
-      };
-    }
-    
+
+    return workerRequest("register", { name, email, password });
+  },
+
+  createGuestAccount: async (name: string): Promise<User> => {
     // Create new user
     const newUser: User = {
       id: `user_${Date.now().toString(36)}`,
@@ -79,43 +42,17 @@ export const authAPI = {
       friends: [],
     };
     
-    serverUsers.push(newUser);
-    saveToStorage();
-    localStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(newUser));
-    
-    return { user: newUser };
-  },
-  
-  // Create a guest account
-  createGuestAccount: async (name: string): Promise<User> => {
-    await delay(400);
-    
-    const guestUser: User = {
-      id: `guest_${Date.now().toString(36)}`,
-      name: name || `Guest_${Math.floor(Math.random() * 1000)}`,
-      email: `guest_${Date.now()}@codecollab.dev`,
-      color: `#${Math.floor(Math.random()*16777215).toString(16)}`,
-      friends: [],
-    };
-    
-    serverUsers.push(guestUser);
-    saveToStorage();
-    localStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(guestUser));
-    
-    return guestUser;
+    return workerRequest("createGuestAccount", { name });
   },
   
   // Get current user
   getCurrentUser: async (): Promise<User | null> => {
-    const userJson = localStorage.getItem(STORAGE_KEYS.CURRENT_USER);
-    if (!userJson) return null;
-    return JSON.parse(userJson);
+    return workerRequest("getCurrentUser");
   },
-  
-  // Sign out
-  signOut: async (): Promise<void> => {
-    await delay(300);
-    localStorage.removeItem(STORAGE_KEYS.CURRENT_USER);
+  signOut: async (): Promise<void> => workerRequest("signOut"),
+
+  getAllUsers: async (): Promise<UserData[]> => {
+    return workerRequest("getAllUsers");
   }
 };
 
@@ -124,14 +61,12 @@ export const projectsAPI = {
   // Get all projects
   getAllProjects: async (): Promise<Project[]> => {
     await delay(600);
-    return serverProjects.filter(p => p.visibility === 'public');
+    return workerRequest("getAllProjects");
   },
   
   // Get top projects (by stars)
   getTopProjects: async (limit: number = 3): Promise<Project[]> => {
-    await delay(600);
-    return [...serverProjects]
-      .filter(p => p.visibility === 'public')
+    return workerRequest("getTopProjects", limit).then(serverProjects => [...serverProjects]
       .sort((a, b) => (b.stars || 0) - (a.stars || 0))
       .slice(0, limit);
   },
@@ -139,86 +74,25 @@ export const projectsAPI = {
   // Get user projects
   getUserProjects: async (userId: string): Promise<Project[]> => {
     await delay(600);
-    return serverProjects.filter(p => p.ownerId === userId);
+    return workerRequest("getUserProjects", userId);
   },
   
   // Create project
   createProject: async (project: Omit<Project, 'id'>): Promise<Project> => {
-    await delay(800);
-    
-    const newProject: Project = {
-      ...project,
-      id: `project_${Date.now().toString(36)}`,
-      stars: 0,
-      lastModified: new Date().toISOString().split('T')[0],
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-    
-    serverProjects.push(newProject);
-    saveToStorage();
-    
-    return newProject;
+    const newProject = project;
+    return workerRequest("createProject", newProject);
   },
   
   // Update project
   updateProject: async (projectId: string, updates: Partial<Project>): Promise<Project> => {
-    await delay(600);
-    
-    const projectIndex = serverProjects.findIndex(p => p.id === projectId);
-    if (projectIndex === -1) {
-      throw new Error('Project not found');
-    }
-    
-    const updatedProject = {
-      ...serverProjects[projectIndex],
-      ...updates,
-      updatedAt: new Date(),
-      lastModified: new Date().toISOString().split('T')[0],
-    };
-    
-    serverProjects[projectIndex] = updatedProject;
-    saveToStorage();
-    
-    return updatedProject;
+    return workerRequest("updateProject", { projectId, updates });
   },
-  
-  // Like project
-  likeProject: async (projectId: string): Promise<Project> => {
-    await delay(300);
-    
-    const projectIndex = serverProjects.findIndex(p => p.id === projectId);
-    if (projectIndex === -1) {
-      throw new Error('Project not found');
-    }
-    
-    const currentLikes = serverProjects[projectIndex].likes || 0;
-    const currentStars = serverProjects[projectIndex].stars || 0;
-    
-    const updatedProject = {
-      ...serverProjects[projectIndex],
-      likes: currentLikes + 1,
-      stars: currentStars + 1,
-    };
-    
-    serverProjects[projectIndex] = updatedProject;
-    saveToStorage();
-    
-    return updatedProject;
-  },
-  
-  // Get project by ID
+
   getProjectById: async (projectId: string): Promise<Project | null> => {
-    await delay(400);
-    return serverProjects.find(p => p.id === projectId) || null;
+    return workerRequest("getProjectById", projectId);
   },
-  
-  // Initialize projects (empty by default)
-  initializeExampleProjects: async (): Promise<void> => {
-    // Don't create any example projects - we'll let users create their own
-    return;
+  deleteProject: async(projectId: string): Promise<void> => {
+    return workerRequest("deleteProject", projectId);
   }
 };
 
-// Initialize project storage (but with no examples)
-projectsAPI.initializeExampleProjects(); 

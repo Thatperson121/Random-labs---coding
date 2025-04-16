@@ -6,7 +6,8 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
 import 'highlight.js/styles/github-dark.css';
-
+import { collection, query, getDocs } from "firebase/firestore"; 
+import { db } from '../firebase';
 interface Message {
   role: 'system' | 'user' | 'assistant';
   content: string;
@@ -15,42 +16,10 @@ interface Message {
 
 interface OpenAIResponse {
   choices: {
+
     message: {
       content: string;
     };
-  }[];
-}
-
-// Function to fetch code content from assets
-const getCodeFromAssets = (assets: Asset[]): string => {
-  let allCode = '';
-  
-  const extractCodeFromAsset = (asset: Asset) => {
-    if (asset.type === 'file' && isCodeFile(asset.fileType)) {
-      allCode += `\n\n// File: ${asset.name}\n${asset.content || '// Content not available'}`;
-    }
-    
-    if (asset.children && asset.children.length > 0) {
-      asset.children.forEach(extractCodeFromAsset);
-    }
-  };
-  
-  assets.forEach(extractCodeFromAsset);
-  return allCode;
-};
-
-// Helper function to identify code files
-const isCodeFile = (fileType?: string): boolean => {
-  return !!fileType && (
-    fileType.startsWith('text/') || 
-    fileType.includes('javascript') || 
-    fileType.includes('typescript') || 
-    fileType.includes('python') || 
-    fileType.includes('java') ||
-    fileType.includes('json')
-  );
-};
-
 // Format file content for display
 const formatCodeForDisplay = (assets: Asset[]): string => {
   let result = '### Files being analyzed:\n\n';
@@ -83,6 +52,8 @@ export const AIAssistant = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [otherProjects, setOtherProjects] = useState<any[]>([]);
+  const [selectedOtherProject, setSelectedOtherProject] = useState<any | null>(null);
   const isOpen = useStore((state) => state.isAIPanelOpen);
   const togglePanel = useStore((state) => state.toggleAIPanel);
   
@@ -104,16 +75,49 @@ export const AIAssistant = () => {
   }, [messages]);
 
   useEffect(() => {
-    // Initialize with a welcome message
-    if (messages.length === 0) {
-      setMessages([
-        {
-          role: 'system',
-          content: 'I am an AI coding assistant. How can I help you with your project today?'
+      // Initialize with a welcome message
+      if (messages.length === 0) {
+          setMessages([
+              {
+                  role: 'system',
+                  content: `I am an AI coding assistant. How can I help you with your project today? I can help with anything related to your code and firebase.`,
+              },
+          ]);
+      }
+  
+      // Fetch other users' projects
+      const fetchOtherProjects = async () => {
+          try {
+              const projectsRef = collection(db, 'projects');
+              const q = query(projectsRef);
+              const querySnapshot = await getDocs(q);
+  
+              const fetchedProjects: any[] = [];
+              querySnapshot.forEach((doc) => {
+                  if (doc.exists()) {
+                      fetchedProjects.push({ id: doc.id, ...doc.data() });
+                  }
+              });
+              setOtherProjects(fetchedProjects);
+          } catch (error) {
+              console.error('Error fetching other projects:', error);
+          }
+      };
+  
+      fetchOtherProjects();
+  }, []);
+  
+  const addOtherProjectToCurrent = async (project: any) => {
+      if (project && project.code) {
+          const newAssets = project.code.map((file: any) => ({
+              name: file.name,
+              type: 'file',
+              content: file.content,
+              fileType: file.fileType,
+          }));
+          useStore.setState({ assets: [...useStore.getState().assets, ...newAssets] });
         }
-      ]);
-    }
-  }, [messages.length]);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -124,6 +128,7 @@ export const AIAssistant = () => {
     const userMessage: Message = { role: 'user', content: input };
     setMessages(prev => [...prev, userMessage]);
     setInput('');
+    
     
     // If AI is not enabled, show a message explaining this
     if (!aiEnabled || !openAIAvailable) {
@@ -148,7 +153,7 @@ export const AIAssistant = () => {
         },
         body: JSON.stringify({
           model: 'gpt-3.5-turbo',
-          messages: [...messages, userMessage],
+          messages: [...messages, userMessage].map(({ timestamp, ...rest }) => rest),
           temperature: 0.7,
           max_tokens: 1000
         })
@@ -203,7 +208,7 @@ export const AIAssistant = () => {
     const userMessage: Message = {
       role: 'user',
       content: 'Analyze my current code and give me suggestions for improvement.',
-      timestamp: new Date(),
+      
     };
     setMessages((prev) => [...prev, userMessage]);
 
@@ -211,7 +216,7 @@ export const AIAssistant = () => {
     const systemMessage: Message = {
       role: 'assistant',
       content: `I'm analyzing the following code:\n\n${codeToAnalyze}`,
-      timestamp: new Date(),
+      
     };
     setMessages((prev) => [...prev, systemMessage]);
 
@@ -224,7 +229,7 @@ export const AIAssistant = () => {
         },
         body: JSON.stringify({
           model: 'gpt-3.5-turbo',
-          messages: [...messages, userMessage, systemMessage],
+          messages: [...messages, userMessage, systemMessage].map(({ timestamp, ...rest }) => rest),
           temperature: 0.7,
           max_tokens: 1000
         })
@@ -275,6 +280,38 @@ export const AIAssistant = () => {
         <button onClick={togglePanel} className="text-gray-500 hover:text-gray-700">
           <X className="w-5 h-5" />
         </button>
+      </div>
+      <div className="p-4 border-b">
+          <h4 className="font-semibold mb-2">Explore Other Projects</h4>
+          {otherProjects.length > 0 ? (
+              <div className="max-h-40 overflow-y-auto">
+                  {otherProjects.map((project) => (
+                      <div key={project.id} className="flex items-center justify-between py-1">
+                          <span className="text-sm">{project.name}</span>
+                          <button
+                              onClick={() => {
+                                  setSelectedOtherProject(project);
+                                  addOtherProjectToCurrent(project)
+                              }}
+                              className="px-2 py-1 bg-blue-500 text-white rounded-md text-xs hover:bg-blue-600"
+                          >
+                              Add to Project
+                          </button>
+                      </div>
+                  ))}
+              </div>
+          ) : (
+              <p className="text-sm text-gray-500">No other projects found.</p>
+          )}
+          {selectedOtherProject && (
+            <div className="bg-gray-100 p-2 rounded-md mt-2">
+                <h5 className="font-semibold">Selected Project:</h5>
+                <p className="text-sm">{selectedOtherProject.name}</p>
+                <button onClick={() => setSelectedOtherProject(null)} className="mt-1 text-blue-500 hover:text-blue-700">
+                    Clear Selection
+                </button>
+            </div>
+        )}
       </div>
 
       <div className="flex-1 overflow-auto p-4">

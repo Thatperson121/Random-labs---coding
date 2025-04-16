@@ -1,20 +1,36 @@
-# Collaborative Browser IDE
+# Full-Featured Collaborative Browser IDE
 
-A real-time collaborative code editor with AI assistance and code execution capabilities.
+This project is a fully-featured, collaborative Integrated Development Environment (IDE) designed to run directly in your web browser. It brings together real-time collaborative editing, AI-powered code assistance, direct code execution, and Firebase integration for seamless project management and sharing. This README will guide you through the process of local development and deploying your own instance of the IDE on Netlify.
 
-## Features
+## New Features
 
-- Real-time collaborative editing
+*   **Built in Libraries:** Access to a wide range of libraries is integrated directly into the IDE. This allows for importing dependencies without needing external tools or configurations.
+*   **Enhanced Code Execution:** The code execution capabilities have been significantly improved, allowing for complex script execution.
+*   **Improved UI/UX:** The user interface has been refined to provide a more intuitive and efficient development experience.
+* **AI code assistance**: AI tools are now integrated to help writing and debugging code.
+* **Asset Panel**: The asset panel allows you to manage your project files and open files in the editor.
+*   **Firebase Integration:** Users can now log in, sign up, save, and load projects directly to and from Firebase.
+*   **Project Sharing:** Users can share their projects with others through Firebase, enabling a collaborative coding environment.
+* **User Projects:** Users can now view all of their projects on the home page.
+* **Explore other code:** Using AI assistance you can now view other users code and add it to your projects.
+
+## Key Features
+
+-   **Firebase User Authentication:** Secure user login and sign-up with Firebase.
+-   **Real-Time Collaborative Editing:** Multiple users can edit the same project simultaneously.
 - AI code assistance
 - Code execution
+- Built-in server capabilities
+- Built in libraries
 - Modern UI with Monaco Editor
 - WebSocket-based real-time updates
-- Secure API endpoints
+- Asset Panel
+- User projects
 
 ## Prerequisites
 
-- Node.js (v16 or higher)
-- npm or yarn
+- Node.js (v18 or higher)
+- npm or yarn.
 - Netlify account (for deployment)
 
 ## Local Development
